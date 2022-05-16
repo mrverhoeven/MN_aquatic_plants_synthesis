@@ -210,8 +210,6 @@ summary(surveys)
 
 names(surveys) <- gsub(" ", "_", gsub( "\\(", "_", gsub( "\\)", "_", names(surveys))))
 
-# start making connections for analysis:
-
 #get dates squared away in surveys
 surveys[ ,sort(unique(DATESURVEYSTART)),]
 
@@ -219,14 +217,23 @@ surveys[ , DATESURVEYSTART := as.Date(DATESURVEYSTART, format = "%m/%d/%Y" ),]
 
 surveys[ , hist(month(DATESURVEYSTART)) ,]
 
+
+# add a CLP metric to summer surveys where CLP Spring abund was me --------
+
 #put a CLP index into the peak surveys:
-early_clpsurveys <- surveys[month(DATESURVEYSTART) %in% c(3,4,5,6) , .(DOW, year = year(DATESURVEYSTART), LAKE_NAME, SUBBASIN, Potamogeton_crispus,DATESURVEYSTART, n_points_vegetated, tot_n_samp)  , ]
+early_clpsurveys <- surveys[month(DATESURVEYSTART) %in% c(3,4,5,6) , .(SURVEY_ID, DOW, year = year(DATESURVEYSTART), LAKE_NAME, SUBBASIN, Potamogeton_crispus,DATESURVEYSTART, n_points_vegetated, tot_n_samp)  , ]
 
 early_clpsurveys[ , potcri_early_vegdfoc := Potamogeton_crispus/n_points_vegetated ]
 
 surveys[ , year := year(DATESURVEYSTART) , ]
 
-summer_surveys <-  merge(surveys[yday(DATESURVEYSTART) > 166 , , ], early_clpsurveys, by = c("DOW", "year", "LAKE_NAME", "SUBBASIN" ), all.x = T)
+summer_surveys <- surveys[yday(DATESURVEYSTART) > 166 & yday(DATESURVEYSTART) < 274 , , ]
+
+summer_surveys <- summer_surveys[early_clpsurveys, on = .(DOW=DOW, year=year, LAKE_NAME=LAKE_NAME, SUBBASIN=SUBBASIN, DATESURVEYSTART = DATESURVEYSTART ), nomatch = NA, mult = "first" ]
+
+
+
+nrow(merge(summer_surveys, early_clpsurveys, by = c("DOW", "year", "LAKE_NAME", "SUBBASIN" ), suffixes = c(".summer", ".spring")))
 
 #merge mgmt data on dows & years
 mgmtdata[ , p_dow := round(downum/100, 0) ,]
@@ -238,8 +245,13 @@ summer_surveys[is.na(clp_targeted), clp_targeted := F ]
 
 summer_surveys[is.na(ewm_targeted), ewm_targeted := F]
 
+
+#summary stats
+
 summer_surveys[ , summary(clp_targeted) ,]
 summer_surveys[ , summary(ewm_targeted) ,]
+summer_surveys[Myriophyllum_spicatum > 0 , summary(ewm_targeted) ,]
+summer_surveys[Myriophyllum_spicatum == 0 & ewm_targeted == T , .(year, LAKE_NAME, DATASOURCE, DATESURVEYSTART.x )  ,]
 
 # visualize "effects"
 ggplot(summer_surveys[potcri_early_vegdfoc > 0], aes(potcri_early_vegdfoc, shannon_div, group = clp_targeted))+
@@ -261,7 +273,7 @@ summer_surveys <- merge(summer_surveys, y_secchi, by.x = c("DOW", "year"), by.y 
 
 ggplot(summer_surveys, aes(mean_secchi, shannon_div))+
   geom_point(aes(color = Myriophyllum_spicatum/n_points_vegetated.x), alpha = 0.4)+
-  geom_smooth()
+  geom_smooth(method = "lm")
 
 
 
