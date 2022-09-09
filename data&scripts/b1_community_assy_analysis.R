@@ -10,6 +10,7 @@
 #'           collapsed: false
 #'---
 
+# On 14 June, 2022 this script resulted in 1785 records for management actions (this line copied at footer)
 
 # header ------------------------------------------------------------------
 
@@ -292,6 +293,11 @@ surveys2[ , year := paste("20", gsub("W","", word(PERMIT, 1L, sep = fixed("-")))
 
 setcolorder(surveys2, c("PERMIT", "year", "USED", "april", "may", "june", "july", "august", "september", "COM_DATE", "COMACREC", "COMACRM", "ACREAGE_AH", "COMPANY1","COMPANY2", "COUNTY", "LAKENAME", "Littora", "METHOD" ))
 
+#reformat all herbicide cols to same data type (character)
+herbcols <- names(surveys2)[c(20:76) ]
+surveys2[ , (herbcols) := lapply(.SD, as.character) , .SDcols = herbcols ]
+rm(herbcols)
+
 surveys2 <- melt(surveys2, id.vars = c(1:19), variable.name = "herbicide", value.name = "qty", na.rm = T)
 
 surveys2[ , workdate := paste(april, may, june, july, august, september, sep = fixed(","))]
@@ -347,7 +353,7 @@ surveys2[county == "ottertail", county := "otter tail"]
 surveys2[county == "todd & stearns", county := "todd" ]
 
 # consider merging to other data on lake & county (this is a smaller pool of candidates)
-surveys2[ , unique(lakename) ]
+# surveys2[ , unique(lakename) ]
 surveys2[str_detect(lakename, "\x92"), lakename := c("Paul's(Florence)", "North Brown's") ]
 
 surveys2[ , lakename := tolower(lakename)]
@@ -356,7 +362,9 @@ surveys2 <- surveys2[!str_detect(lakename, pattern = fixed(","))]
 
 multilake[lakename == "forest 1,2,3", lakename := "forest"]
 
-tstrsplit(multilake$lakename, ",", fixed = T, fill =  "<NA>", keep = 1 )
+# test fn()
+# tstrsplit(multilake$lakename, ",", fixed = T, fill =  "<NA>", keep = 1 )
+#execute
 multilake[ , lake_1 := tstrsplit(lakename, ",", fixed = T, fill =  "<NA>", keep = 1 ), ]
 multilake[ , lake_2 := tstrsplit(lakename, ",", fixed = T, fill =  "<NA>", keep = 2 ), ]
 multilake[ , lake_3 := tstrsplit(lakename, ",", fixed = T, fill =  "<NA>", keep = 3 ), ]
@@ -402,15 +410,13 @@ permits_IAPM[ , year := year(effective_date) ,]
 
 #need to review each of these to see which DOW to assign
 
-permits_IAPM[ , .(lakename, county, downum) , ]
-
-surveys2[ , .(lakename, county) , ]
-
-permits_IAPM[ , .(lakename, county) , ]
+# permits_IAPM[ , .(lakename, county, downum) , ]
+# surveys2[ , .(lakename, county) , ]
+# permits_IAPM[ , .(lakename, county) , ]
 
 permits_IAPM[ , lakename := tolower(lakename) , ]
 
-surveys2[ ,lakename, ]
+# surveys2[ ,lakename, ]
 
 surveys2[ , lakename := trimws(lakename, which = "both") , ]
 surveys2[ , lakename := gsub(" ","_",
@@ -419,7 +425,7 @@ surveys2[ , lakename := gsub(" ","_",
                                                        gsub("\\/", "_",
                                                             gsub("\\'","",
                                                                  gsub("’", "", lakename))))))) , ]
-surveys2[str_detect(lakename, "__")]
+# surveys2[str_detect(lakename, "__")]
 
 surveys2[lakename == "silver__nsp", downum := 62000100]
 surveys2[lakename == "silver__nsp", lakename := "silver"]
@@ -432,17 +438,16 @@ surveys2[lakename == "paul’s__florence", lakename := "florence"]
 
 grantsdata[str_detect(LakeName, "aul"), LakeName := "Florence"]
 
-surveys2[ , sort(unique(lakename)) , ]
+# surveys2[ , sort(unique(lakename)) , ]
 
 county_name_key[ , pw_basin_n := gsub(" ", "_", tolower(pw_basin_n)) ,  ]
 
 # county_name_key[ , sort(unique(pw_basin_n)) ,]
 
-surveys2[ , sort(unique(lakename)) , ][ !surveys2[ , sort(unique(lakename)) , ]%in%county_name_key[ , sort(unique(pw_basin_n)) ,]
-]
+# surveys2[ , sort(unique(lakename)) , ][ !surveys2[ , sort(unique(lakename)) , ]%in%county_name_key[ , sort(unique(pw_basin_n)) ,]]
 
 #buck_little pelican
-surveys2[lakename == "buck_little_pelican", ]
+# surveys2[lakename == "buck_little_pelican", ]
 surveys2 <- rbind(surveys2,surveys2[lakename == "buck_little_pelican", ])
 surveys2[lakename == "buck_little_pelican", lakename := c("bucks", "little_pelican") ]
 
@@ -472,7 +477,7 @@ surveys2[lakename == "lindstrom_south", lakename := "south_lindstrom" ,]
 surveys2[lakename == "lower_south_long", downum := 18013600 ,]
 surveys2[lakename == "lower_south_long", lakename := "south_long" ,]
 
-surveys2[lakename == "mink_somers",  ,]
+# surveys2[lakename == "mink_somers",  ,]
 surveys2 <- rbind(surveys2,surveys2[lakename == "mink_somers", ])
 surveys2[lakename == "mink_somers", downum := c(86023000, 86022900) ]
 surveys2[lakename == "mink_somers", lakename := c("somers", "mink") ]
@@ -487,8 +492,8 @@ surveys2[lakename == "n_anderson", downum := 27006201 ,]
 surveys2[lakename == "n_anderson", lakename := "north_anderson",]
 surveys2[ , lakename := gsub("__", "_", lakename) ]
 
-surveys2[ , sort(unique(lakename)) , ][ !surveys2[ , sort(unique(lakename)) , ]%in%county_name_key[ , sort(unique(pw_basin_n)) ,]
-]
+# surveys2[ , sort(unique(lakename)) , ][ !surveys2[ , sort(unique(lakename)) , ]%in%county_name_key[ , sort(unique(pw_basin_n)) ,]
+# ]
 
 surveys2[lakename == "oehrlines", downum := 62001400 ,]
 
@@ -516,6 +521,7 @@ surveys2[ str_detect(lakename, "minnetonka"), lakename := "minnetonka" , ]
 
 surveys2 <- merge(surveys2, county_name_key, by.x = c("lakename", "county"), by.y = c("pw_basin_n","cty_name"), all.x = T)
 
+surveys2[ , dowlknum := as.integer(dowlknum) , ]
 surveys2[is.na(downum), downum := dowlknum]
 
 surveys2[lakename == "big_swan", county := "todd"]
@@ -543,7 +549,7 @@ surveys2[str_detect(lakename, "riley"), county := "carver"  ]
 surveys2[str_detect(lakename, "riley"), downum := 10000200  ]
 
 #these three are un-resolveable
-surveys2[is.na(downum)]
+# surveys2[is.na(downum)]
 
 surveys2 <- surveys2[!is.na(downum)]
 surveys2[ , c("dowlknum","cty_code") := NULL , ]
@@ -552,13 +558,13 @@ surveys2[ , qty := as.numeric(qty) ,]
 
 surveys2 <- surveys2[qty > 0, ]
 
-surveys2[ , sort(unique(workdate))  ,]
+# surveys2[ , sort(unique(workdate))  ,]
 
-surveys2[ workdate == ""]
+# surveys2[ workdate == ""]
 
-surveys2[ workdate != "" & com_date != "" ,. (workdate, com_date) , ]
+# surveys2[ workdate != "" & com_date != "" ,. (workdate, com_date) , ]
 
-surveys2[ workdate != "" & com_date != "" & workdate != com_date  , .(workdate, com_date) , ]
+# surveys2[ workdate != "" & com_date != "" & workdate != com_date  , .(workdate, com_date) , ]
 
 surveys2[ workdate == "", workdate := com_date ]
 
@@ -577,15 +583,15 @@ surveys2[str_detect(herbicide, "riclop") & workdate == "6"  , clp_targeted := T]
 
 surveys2[is.na(clp_targeted), sort(unique(herbicide))]
 
-surveys2 <- surveys2[!herbicide %in% c("Potassium Chloride lbs", "Earthtech QZ" )]
+# surveys2 <- surveys2[!herbicide %in% c("Potassium Chloride lbs", "Earthtech QZ" )]
 
-surveys2[herbicide == "october"]
-
-surveys2[permit %in% c("15W-3B107", "12W-2B024", "15W-2B32", "15W-3A123") , , ]
+# surveys2[herbicide == "october"]
+# 
+# surveys2[permit %in% c("15W-3B107", "12W-2B024", "15W-2B32", "15W-3A123") , , ]
 
 surveys2 <- surveys2[!permit %in% c("15W-3B107", "12W-2B024", "15W-2B32", "15W-3A123") , , ]
 
-surveys2[is.na(clp_targeted) & is.na(ewm_targeted), .N , .(herbicide, workdate) ]
+# surveys2[is.na(clp_targeted) & is.na(ewm_targeted), .N , .(herbicide, workdate) ]
 
 surveys2[ herbicide %in% c("HYDRO191", "G_HYDRO191"), clp_targeted := T]
 
@@ -602,13 +608,13 @@ surveys2 <- surveys2[!duplicated(surveys2)]
 
 surveys2[ , year := as.numeric(year) ,]
 
-surveys2[!is.na(acreage_ah) , .(comacrec, comacrm, acreage_ah) , ][is.na(comacrec)]
+# surveys2[!is.na(acreage_ah) , .(comacrec, comacrm, acreage_ah) , ][is.na(comacrec)]
 
-names(surveys2)
+# names(surveys2)
 
 surveys2 <- surveys2[ , .(lakename, subbasin, downum, year, permit, workdate,  comacrec, comacrm, method, herbicide, qty, clp_targeted, ewm_targeted) ,  ]
 
-surveys2[ , .N , .(year, lakename, subbasin, downum, clp_targeted, ewm_targeted)][N>1]
+# surveys2[ , .N , .(year, lakename, subbasin, downum, clp_targeted, ewm_targeted)][N>1]
 
 surveys2[, qty := round(qty, 2)]
 
@@ -623,7 +629,7 @@ grantsdata[ , county := NULL ,]
 
 setcolorder(grantsdata, c("year", "dow"))
 
-names(mgmtdat)
+# names(mgmtdat)
 names(mgmtdat)[names(mgmtdat)  == "calendar_year"] <- "year"
 names(mgmtdat)[names(mgmtdat)  == "resource_number"] <- "dow"
 mgmtdat <- mgmtdat[ , .(year, dow, resource_name, workdate, total_cut_area_acres, total_treated_area_acres, herbicide, qty  ) , ]
@@ -631,10 +637,12 @@ mgmtdat <- mgmtdat[ , .(year, dow, resource_name, workdate, total_cut_area_acres
 # str(mgmtdat)
 # str(grantsdata)
 
+# mgmtdat[ , sort(unique(dow))]
+mgmtdat <- mgmtdat[!dow == "M-050"]
+
 grantsdata[ , dow := as.integer(dow) , ]
 mgmtdat[ , year := as.integer(year) , ]
 mgmtdat[ , dow := as.integer(dow) , ]
-# mgmtdat[is.na(dow)] #dont care
 mgmtdat[ , county := county_code_key[match(mgmtdat[ , round(dow/1000000,0) ],county_code_key$cty_code), V1]]
 names(mgmtdat)[!names(mgmtdat) %in%  c("dow","year")] <- paste(names(mgmtdat)[!names(mgmtdat) %in%  c("dow","year")], "_surveys", sep = "" )
 
@@ -727,32 +735,32 @@ names(mgmtdata)[names(mgmtdata)%in% c("lakename.y")] <- "lakename"
 
 mgmtdata[ , lakename_earlyeraAPM := gsub("_", "", lakename_earlyeraAPM)]
 
-mgmtdata[ lakename_earlyeraAPM != lakename, .(lakename_earlyeraAPM,lakename)]
+# mgmtdata[ lakename_earlyeraAPM != lakename, .(lakename_earlyeraAPM,lakename)]
 
 mgmtdata[is.na(lakename), lakename := lakename_earlyeraAPM]
 
 # cleaning on the merged dataset: -----------------------------------------
 
 setcolorder(mgmtdata, c("year", "downum", "lakename", "subbasin"))
-names(mgmtdata)
+# names(mgmtdata)
 
 #target species:
 #ewm
-summary(mgmtdata[ ,.(ewm_targeted, ewm_targeted.x,ewm_targeted.y),] )
+# summary(mgmtdata[ ,.(ewm_targeted, ewm_targeted.x,ewm_targeted.y),] )
 mgmtdata[ewm_targeted.x == T | ewm_targeted.y == T, ewm_targeted := T ]
 
 mgmtdata[ , c("ewm_targeted.x", "ewm_targeted.y") := NULL , ]
 
 # summary(mgmtdata$ewm_targeted.x)
 #clp
-summary(mgmtdata[ ,.(clp_targeted, clp_targeted.x, clp_targeted.y),] )
+# summary(mgmtdata[ ,.(clp_targeted, clp_targeted.x, clp_targeted.y),] )
 
 mgmtdata[clp_targeted.x == T | clp_targeted.y == T, clp_targeted := T ]
 
 mgmtdata[ , c("clp_targeted.x", "clp_targeted.y") := NULL , ]
 
 #which records do we not know the target organism?
-mgmtdata[is.na(clp_targeted) & is.na(ewm_targeted), .N ,]
+# mgmtdata[is.na(clp_targeted) & is.na(ewm_targeted), .N ,]
 #drop those
 mgmtdata <- mgmtdata[!(is.na(clp_targeted) & is.na(ewm_targeted))]
 
@@ -769,16 +777,16 @@ setcolorder(mgmtdata, c("year", "downum", "lakename", "subbasin", "lakename_gran
 
 
 #year/date
-mgmtdata[ , .(year, workdate_surveys, treatmentdate, effective_date, workdate) , ]
+# mgmtdata[ , .(year, workdate_surveys, treatmentdate, effective_date, workdate) , ]
 
 names(mgmtdata)[match(c("workdate_surveys", "treatmentdate", "effective_date", "workdate"),names(mgmtdata))] <- c("workdate_lateraAPM", "trtdate_grantsprogram", "effectivedate_IAPMpermits", "workdate_earlyeraAPM")
 
 mgmtdata[  , c("workdate_lateraAPM", "trtdate_grantsprogram", "effectivedate_IAPMpermits", "workdate_earlyeraAPM") := lapply(.SD, as.character) , .SDcols = c("workdate_lateraAPM", "trtdate_grantsprogram", "effectivedate_IAPMpermits", "workdate_earlyeraAPM") ,]
 
-mgmtdata[  , .SD , .SDcols = c("workdate_lateraAPM", "trtdate_grantsprogram", "effectivedate_IAPMpermits", "workdate_earlyeraAPM") ,]
+# mgmtdata[  , .SD , .SDcols = c("workdate_lateraAPM", "trtdate_grantsprogram", "effectivedate_IAPMpermits", "workdate_earlyeraAPM") ,]
 
 mgmtdata[ , trtdate := trtdate_grantsprogram]
-mgmtdata[is.na(trtdate) , sort(unique(workdate_lateraAPM))]
+# mgmtdata[is.na(trtdate) , sort(unique(workdate_lateraAPM))]
 
 mgmtdata[ , workdate_lateraAPM := gsub("April", "4", 
                                        gsub("May", "5",
@@ -792,7 +800,7 @@ mgmtdata[ , workdate_lateraAPM := gsub("April", "4",
 
 mgmtdata[is.na(trtdate), trtdate := workdate_earlyeraAPM]
 mgmtdata[is.na(trtdate), trtdate := workdate_lateraAPM]
-mgmtdata[!is.na(trtdate), sort(unique(trtdate))]
+# mgmtdata[!is.na(trtdate), sort(unique(trtdate))]
 mgmtdata[ , c("workdate_lateraAPM", "workdate_earlyeraAPM", "trtdate_grantsprogram") := NULL]
 
 mgmtdata[ , organization := NULL]
@@ -803,13 +811,13 @@ mgmtdata[ , permit_number := NULL]
 
 
 
-mgmtdata[ , .(total_cut_area_acres_surveys, total_treated_area_acres_surveys, acrestreated, comacrec, comacrm)]
+# mgmtdata[ , .(total_cut_area_acres_surveys, total_treated_area_acres_surveys, acrestreated, comacrec, comacrm)]
 
 # check if other acreage data exist:
 # summary(mgmtdata[is.na(acrestreated), .(as.numeric(total_cut_area_acres_surveys), as.numeric(total_treated_area_acres_surveys), acrestreated, comacrec, comacrm) ])
 
 mgmtdata[is.na(acrestreated), acrestreated := comacrec]
-mgmtdata[ , sort(unique(total_treated_area_acres_surveys))]
+# mgmtdata[ , sort(unique(total_treated_area_acres_surveys))]
 mgmtdata[ , total_treated_area_acres_surveys := as.numeric(gsub("ac", "",
                              gsub("Acres", "", 
                                   gsub("Ac", "",
@@ -827,7 +835,7 @@ mgmtdata[is.na(acrestreated), acrestreated := total_cut_area_acres_surveys]
 mgmtdata[ , c("total_treated_area_acres_surveys", "total_cut_area_acres_surveys", "comacrec", "comacrm") := NULL , ]
 
 #where no trt method is specified, fill in:
-mgmtdata[ , sort(unique(treatmentmethod))]
+# mgmtdata[ , sort(unique(treatmentmethod))]
 mgmtdata[treatmentmethod == "" ,treatmentmethod := NA  , ]
 
 # mgmtdata[ , sort(unique(proposedmethod))]
@@ -896,39 +904,8 @@ mgmtdata <- mgmtdata[!duplicated(mgmtdata), , ]
 mgmtdata[ , records := .N, .(year, downum, lakename)]
 
 
-
-# On 13 May, 2022 this script resulted in 1785 records for management actions
-
+# footer ------------------------------------------------------------------
 
 
 
-
-
-
-
-
-# mgmtdata[records ==1 ]
-
-
-# This chunk will try to eliminate some additional duplicates...
-# c_mgmt <- mgmtdata[ , .(year, dow, lakename, clp_targeted.x, ewm_targeted.x, physical_removal, chemical_control, acres_mgmt, workdate), ]
-# 
-# c_mgmt <- c_mgmt[!duplicated(c_mgmt), , ]
-# 
-# c_mgmt[ , acres_mgmt := round(acres_mgmt, 1)  ,]
-# 
-# c_mgmt <- dcast(c_mgmt, year + dow + lakename + physical_removal+ chemical_control + acres_mgmt + workdate ~ clp_targeted.x + ewm_targeted.x)
-# 
-# c_mgmt[FALSE_TRUE == 1, target_sp := "EWM"]
-# c_mgmt[TRUE_FALSE == 1, target_sp := "CLP"]
-# c_mgmt[TRUE_TRUE == 1, target_sp := "CLP_EWM"]
-# 
-# c_mgmt[ , c("TRUE_TRUE", "TRUE_FALSE", "FALSE_TRUE") := NULL ,]
-# 
-# #cursor catcher
-# 
-# duplicated(c_mgmt[ , .(year,dow, lakename) , ])
-# 
-# c_mgmt[duplicated(c_mgmt[ , .(year,dow, lakename) , ]), , ]
-
-
+# On 14 June, 2022 this script resulted in 1785 records for management actions

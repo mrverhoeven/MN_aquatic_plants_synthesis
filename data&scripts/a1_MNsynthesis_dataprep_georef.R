@@ -57,6 +57,12 @@
 # pwi_l <- st_read(dsn = "data&scripts/data/input/shp_water_dnr_hydrography", layer = "dnr_hydro_features_all")
 # # pwi_r <- readOGR(dsn = "data&scripts/data/input/shp_water_mn_public_waters", layer = "public_waters_watercourses_delineations")
 # 
+# watersheds_huc4 <- st_read(dsn = "data&scripts/data/input/shp_geos_dnr_watersheds", layer = "dnr_watersheds_dnr_level_02_huc_04")
+# 
+# watersheds_huc8 <- st_read(dsn = "data&scripts/data/input/shp_geos_dnr_watersheds", layer = "dnr_watersheds_dnr_level_04_huc_08_majors")
+
+
+# 
 # #species statuses
 # rte <- fread(input = "data&scripts/data/input/2013_dnr_plant_checklist_web.csv")
 
@@ -284,4 +290,21 @@ plants_pts = st_transform(plants_pts, crs = "+proj=utm +zone=15")
       # # Closing the graphical device
       # dev.off()
 
-rm(plants_pts, plants_UTMS)
+
+# label all pwi_l with watershed names ------------------------------------
+
+# st_join(pwi_l, watersheds_huc8)
+# 
+# st_crs(plants_UTMS) <- st_crs(watersheds_huc8)
+# 
+# plantsUTMS <- st_join(plants_UTMS, left = TRUE, watersheds_huc8)
+
+pwi_l <- st_sf(pwi_l)
+st_crs(pwi_l) <- st_crs(watersheds_huc8)
+pwi_l <- st_join(pwi_l, left = TRUE, watersheds_huc8)
+
+setDT(pwi_l)
+
+
+
+rm(plants_pts, plants_UTMS, watersheds_huc8)
