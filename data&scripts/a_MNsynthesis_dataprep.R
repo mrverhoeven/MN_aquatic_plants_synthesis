@@ -62,6 +62,7 @@ f_dowle3natozeros = function(DT, x) {
 
 
 # load in data -------------------------------------------------
+
 plants <- fread(input = "data&scripts/data/input/plant_surveys_mn.csv", drop = 1:2) #import, dropping the exported row numbers
 
 #Secchi data
@@ -92,19 +93,17 @@ source(file = "data&scripts/a0_1_MNsynthesis_dataprep_collabcorrections.R")# wil
 source(file = "data&scripts/a1_MNsynthesis_dataprep_georef.R")# will run the georef cleaning and connecting of the data set, and takes about 2 minutes to run. After run, pwi_l and plants can be linked on the shared "order_ID" column
 
 #rake abunds
-source(file = "data&scripts/a2_MNsynthesis_dataprep_rakeabund.R") # will clean up the rake abundaces, scaling them to the 1-3 scale
+source(file = "data&scripts/a2_MNsynthesis_dataprep_rakeabund.R") # will clean up the rake abundances, scaling them to the 1-3 scale
 
 #secchi data
-source(file = "data&scripts/a3_MNsynthesis_dataprep_secchidata.R") # NEEDS ENLIGHTENED COMMENT
-
-
+source(file = "data&scripts/a3_MNsynthesis_dataprep_secchidata.R") # will conduct an eval of the fuzzy join of Secchi to plants data, calculate Secchi metrics based on the chosen fuzzy join, then excute the join 
 
 # on the fly fixes --------------------------------------------------------
 
 plants[TAXON == "Mitellopsis", TAXON := "Nitellopsis"]
 
 
-# summarize whats there ---------------------------------------------------
+# summarize plants dataset ---------------------------------------------------
 
 str(plants) #what data formats?
 names(plants) #field names
@@ -118,8 +117,9 @@ plants[!is.na(TAXON) , length(unique(OBS_ID))] # how many times was a plant iden
 
 
 #' Lets see how many surveys we have been given by each contributor
-plants[ , unique(SURVEY_DATASOURCE) ,] #we need to clean these up
-# survey contribution
+plants[ , unique(SURVEY_DATASOURCE) ,] 
+
+# survey contribution viz
 ggplot(plants[ , .N, .(SURVEY_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE, fill = INDATABASE))+
   geom_bar(stat = "count", position = "stack" )+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
@@ -134,8 +134,7 @@ ggplot(plants[INDATABASE==T , .N, .(POINT_ID, SURVEY_DATASOURCE, INDATABASE)], a
 #' The database has all the surveys we know exist for MN in it, including those
 #' for which we do not have the data. It is often useful to snip those no-data
 #' ones off right away to avoid running any calcs using all those rows w/o any
-#' species data.
-#' 
+#' species data. 
 
 missing_data_surveys <- plants[ INDATABASE == F] 
 
@@ -170,56 +169,39 @@ hist(plants[ , length(unique(TAXON)) , POINT_ID][ , V1], main = "N taxa per poin
 
 surveys <- plants[ , .(tot_n_samp = length(unique(POINT_ID)))  , SURVEY_ID ]
 
-# #richness, ensuring we aren't counting NAs:
-# plants[ , length(unique(TAXON))  , SURVEY_ID ]
-# plants[!is.na(TAXON) , length(unique(TAXON))  , SURVEY_ID ]
-# plants[ , sum(is.na(TAXON)), SURVEY_ID][V1<1]#not every survey has at least 1 NA in the TAXON column
-# plants[ , ifelse(sum(is.na(TAXON))== 0, 0, 1), SURVEY_ID]
-# 
-# #we can subtract 1 if the taxon column contained NA
-# plants[ , length(unique(TAXON))   , SURVEY_ID ][ , V1] - plants[ , ifelse(sum(is.na(TAXON))== 0, 0, 1), SURVEY_ID][,V1]
-
 #add richness to the surveys dataset
 surveys[  , taxa_richness := #take the "taxon count" and subtract one if the survey includes NAs (see next two lines)
             plants[ , length(unique(TAXON))   , SURVEY_ID ][ , V1]-# ("total richness", but counts NAs as a taxon) minus
             plants[ , ifelse(sum(is.na(TAXON))== 0, 0, 1), SURVEY_ID][,V1],]#  (each survey get a 0 if no NAs or a 1 if contains NA's)
 
-# extent of vegetation in survey (prop vegetated)
-# plants[NO_VEG_FOUND == F, length(unique(POINT_ID)) , SURVEY_ID ]
-# plants[!is.na(TAXON), length(unique(POINT_ID)) , SURVEY_ID ]
-
+# extent of vegetation in survey (proportion vegetated)
 surveys <- merge(surveys,plants[!is.na(TAXON), .(n_points_vegetated=length(unique(POINT_ID))) , SURVEY_ID ], by = "SURVEY_ID", all.x = TRUE)[is.na(n_points_vegetated), n_points_vegetated := 0 ]
-
 surveys[ , prop_veg := n_points_vegetated/tot_n_samp ,]
 
-
 #create a plant observation matrix (species abund by survey)
-plants[!is.na(TAXON) , .("count" = length(unique(POINT_ID))) , .(SURVEY_ID,TAXON)]
-survey_species_matrix <- dcast(plants[!is.na(TAXON) , .("count" = length(unique(POINT_ID))) , .(SURVEY_ID,TAXON)], SURVEY_ID ~ TAXON, value.var = "count", fill = 0)
-
+survey_species_matrix <- dcast(plants[!is.na(TAXON) , .("count" = length(unique(POINT_ID))) , .(SURVEY_ID,TAXON)], SURVEY_ID ~ TAXON, value.var = "count", fill = 0) #note that this line creates the matrix ONLY for surveys that had species obseravtions (~70 surveys had no species observed)
 
 
 # survey level diversity metrics ------------------------------------------
 
-
-#native div (exclude typha ang, typha glauca, M spicatum, L salicaria, P crispus, N minor)
-
+# native diversity must exclude typha ang, typha x glauca, M spicatum, L salicaria, P crispus, N minor)
 rte <- clean_names(rte)
 natcols <- names(survey_species_matrix)[!names(survey_species_matrix)%in%c(rte[native_status == "I", mn_dnr_scientific_name], "Nitellopsis", "Typha glauca", "SURVEY_ID")]
 
-#diversity metrics go here
+# diversity metrics go here
 names(survey_species_matrix)
+
+# total diversity
 survey_species_matrix[ , shannon_div := diversity(survey_species_matrix[,2:236],index = "shannon") ]
 survey_species_matrix[ , simpsons_div := diversity(survey_species_matrix[,2:236],index = "invsimpson") ]
 
+# native diversity
 survey_species_matrix[ , shannon_div_nat := diversity(survey_species_matrix[,.SD, .SDcols = natcols],index = "shannon") ]
 survey_species_matrix[ , simpsons_div_nat := diversity(survey_species_matrix[,.SD, .SDcols = natcols],index = "invsimpson") ]
-
 survey_species_matrix[simpsons_div_nat == Inf, simpsons_div_nat := 0]
 
-
+# native richness
 survey_species_matrix[ ,  nat_richness := rowSums(survey_species_matrix[ , .SD, .SDcols = natcols] > 0), ]
-
 
 # depth stats ----------------------------------------------------
 
@@ -229,8 +211,21 @@ surveys <- surveys[plants[ !is.na(DEPTH_FT), .("min_depth_surveyed" = min(DEPTH_
 surveys <- surveys[plants[ !is.na(DEPTH_FT), .("mean_depth_surveyed" = mean(DEPTH_FT)) , SURVEY_ID], on = "SURVEY_ID" , ]
 surveys <- surveys[plants[ !is.na(DEPTH_FT), .("median_depth_surveyed" = median(DEPTH_FT)) , SURVEY_ID], on = "SURVEY_ID" , ]
 surveys <- surveys[plants[ !is.na(DEPTH_FT), .("IQR_depth_surveyed" = IQR(DEPTH_FT)) , SURVEY_ID], on = "SURVEY_ID" , ]
-# summary(surveys)#note we dropped the two surveys with no depth data:
-# plants[ !SURVEY_ID %in% plants[!is.na(DEPTH_FT) , .N  ,  SURVEY_ID][,SURVEY_ID], ]
+
+# summary(surveys)
+#note: we dropped two more surveys with no depth data in this step. We also want to dump any remaining points with depth == NA to be consistent in the handling of all no depth sampled points (currently only MNDNR ):
+plants[ !SURVEY_ID %in% plants[!is.na(DEPTH_FT) , .N  ,  SURVEY_ID][,SURVEY_ID], ][ , .N , .(SURVEY_ID, DOW, SURVEY_DATE) ]
+
+plants[is.na(DEPTH_FT), .N, .(SURVEY_ID, DATASOURCE)][, unique(DATASOURCE)] #these only still remain in the DNR data--thats because we did the DNR data merge after cleaning up the other data 
+
+plants[ SURVEY_ID %in% plants[is.na(DEPTH_FT), .N, .(SURVEY_ID, DATASOURCE)][,SURVEY_ID], .N , .(SURVEY_ID, DATASOURCE)
+          ][ , N] #counts all points in those surveys
+
+histogram(plants[is.na(DEPTH_FT), .N, .(SURVEY_ID, DATASOURCE)][, N] /plants[ SURVEY_ID %in% plants[is.na(DEPTH_FT), .N, .(SURVEY_ID, DATASOURCE)][,SURVEY_ID], .N , .(SURVEY_ID, DATASOURCE)
+][ , N])#what proportion of each of these surveys will this step drop?
+
+plants <- plants[!is.na(DEPTH_FT)]
+
 
 #vegetated depths data
 #max depth vegetated:
@@ -243,14 +238,16 @@ surveys <- merge( surveys , plants[ NO_VEG_FOUND == FALSE , .("median_depth_vege
 surveys <- merge( surveys , plants[ NO_VEG_FOUND == FALSE , .("IQR_depth_vegetated" = IQR(DEPTH_FT, na.rm = T)) , SURVEY_ID], by = "SURVEY_ID" , all.x =TRUE )
 
 
-# bring species matrix & lake data back to the survey data -------------------------
+# species matrix and survey data  -------------------------
 
 #species matrix for surveys
 surveys <- merge(surveys, survey_species_matrix, by = "SURVEY_ID", all.x = T)
-f_dowle3natozeros(surveys, names(survey_species_matrix))
-summary(surveys[,1:17])
+f_dowle3natozeros(surveys, names(survey_species_matrix)) #the merge incorrectly assigns NAs for non obs... here we replace those with 0s
 
-#append lake data (basic data from plants db) to these
+# check work:
+# summary(surveys[,1:17])
+
+#append survey data (basic data from plants db) to these
 names(plants)
 surveys <- merge(plants[ , .("nobs" = .N) , .(SURVEY_ID, DATASOURCE, LAKE_NAME, DOW, DATESURVEYSTART, SUBBASIN, MULTIPARTSURVEY, order_ID) ],surveys,  by = "SURVEY_ID")
 summary(surveys)
@@ -299,7 +296,7 @@ plants_occurrence_wide <- dcast(plants, SURVEY_ID + POINT_ID + NO_VEG_FOUND + Se
 
 #diversity metrics (only have richness with p/a, no "evenness"):
 point_natcols <- names(plants_occurrence_wide)[!names(plants_occurrence_wide)%in%c(rte[native_status == "I", mn_dnr_scientific_name], "Nitellopsis", "Typha glauca", "SURVEY_ID", "POINT_ID", "richness", "NA", "DEPTH_FT", "Secchi_m.mean", "NO_VEG_FOUND")]
-plants_occurrence_wide[ ,  richness := rowSums(.SD > 0), .SDcols = c(7:241) ]
+plants_occurrence_wide[ ,  richness := rowSums(.SD > 0), .SDcols = c(7:237) ]
 plants_occurrence_wide[ ,  nat_richness := rowSums(.SD > 0), .SDcols = point_natcols ]
 
 
@@ -413,5 +410,177 @@ plants_rakeabund_wide[ , surveyrichness := surveys[match(plants_rakeabund_wide[ 
      lake_pools
    )
   
-  
+   
+#visualization and exploration IDEAS
+ 
+ ggplot(surveys, aes(acres, shannon_div))+
+   geom_point()+
+   scale_x_log10()+
+   geom_smooth(method = "lm")
+ 
+ ggplot(surveys, aes(Y, shannon_div))+
+   geom_point()+
+   geom_smooth(method = "lm")
+ 
+ ggplot(surveys, aes(acres, Y))+
+   geom_point()+
+   scale_x_log10()
+ 
+ 
+ ggplot(surveys, aes(`Myriophyllum spicatum`/tot_n_samp, shannon_div))+
+   geom_point()+
+   geom_smooth()
+ ggplot(surveys, aes(`Myriophyllum sibiricum`/tot_n_samp, shannon_div))+
+   geom_point()+
+   geom_smooth()
+ ggplot(surveys, aes(`Potamogeton crispus`/tot_n_samp, shannon_div))+
+   geom_point()+
+   geom_smooth()
+ 
+ # ggplot(surveys, aes(`Myriophyllum spicatum`/tot_n_samp, shannon_div, group = DOW))+
+ #   geom_line()
+ # 
+ 
+ 
+ # figures for DL's LCCMR presentation ---------
+ # 
+ # # var(richness) ~ latitude, area
+ # 
+ # plants[ , length(unique(TAXON)) , SURVEY_ID] 
+ # 
+ # ggplot( plants[ , length(unique(TAXON)) , SURVEY_ID]  , aes(V1) , )+
+ #   geom_histogram( bins = 49)
+ # 
+ # #need to draw in the lattitude and area data:
+ # 
+ #other data for fig
+ # usa <- map_data("usa")
+ # canada <- map_data("world", region = "canada")
+ # states <- map_data("state")
+ # mn_df <- subset(states, region == c("minnesota"))
+ 
+ # mn_lakes <- st_read("E:/My Drive/Documents/UMN/Grad School/Larkin Lab/GIS Data/Starry Trek 2017/shp_water_dnr_hydrography (1)/dnr_hydro_features_all.shp ")
+ # mn_lk_DT <- as.data.table(mn_lakes)
+ # 
+ # #we are going to lose 118k observations in this join:
+ # sum(is.na(match(surveys$DOW, mn_lk_DT$dowlknum)))
+ # sum(!is.na(match(plants$DOW, mn_lk_DT$dowlknum)))
+ # 
+ # mn_lakes_plants <- subset(mn_lakes, dowlknum %in% plants[,unique(DOW) , ] & !is.na(dowlknum))
+ # mn_lk_DT_plants <- mn_lk_DT[dowlknum %in% plants[,unique(DOW) , ] & !is.na(dowlknum)]
+ # 
+ # mn_lk_plants_utm <- SpatialPointsDataFrame(mn_lk_DT_plants[,.(center_utm, center_u_1)], mn_lk_DT_plants, proj4string=CRS("+proj=utm +zone=15N +datum=WGS84"))  
+ # mdgeo <- spTransform(mn_lk_plants_utm, CRS("+proj=longlat +datum=WGS84"))
+ # str(mdgeo)
+ # md_sf <- st_as_sf(mdgeo)
+ # 
+ # lake_geo_area <- data.table(st_coordinates(st_centroid(md_sf$geometry)), dow = md_sf$dowlknum, area = md_sf$acres)
+ # 
+ # 
+ # plants[!is.na(TAXON) , length(unique(TAXON)) , .(SURVEY_ID, DOW) ]
+ # 
+ # lake_geo_area[ , dow := as.numeric(dow) ,]
+ # 
+ # lake_lvl <- lake_geo_area[plants[!is.na(TAXON) , length(unique(TAXON)) , .(SURVEY_ID, DOW) ], on = .(dow = DOW)]
+ # 
+ # lake_lvl[!is.na(X), , ]
+ # 
+ # # richness ~ lat
+ # ggplot( lake_lvl, aes(Y, V1) )+
+ #   geom_point()+
+ #   geom_smooth(method = "lm")
+ # # richness ~ area
+ # ggplot( lake_lvl, aes(log(area), V1) )+
+ #   geom_point()+
+ #   geom_smooth(method = "lm")
+ 
+ 
+ # #lakewide foc v. rake density
+ # 
+ # plants[  , length(unique(POINT_ID)) , SURVEY_ID ]
+ # 
+ # plants[ TAXON == "Myriophyllum spicatum" , .(N_EWM = length(unique(POINT_ID)), Rake_abund = mean(REL_ABUND)) , SURVEY_ID   ][plants[  , .(N_samples = length(unique(POINT_ID))) , SURVEY_ID ], on = .(SURVEY_ID = SURVEY_ID) ]
+ # 
+ # EWMabunds <- plants[ TAXON == "Myriophyllum spicatum" , .(N_EWM = length(unique(POINT_ID)), Rake_abund = mean(REL_ABUND)) , SURVEY_ID   ][plants[  , .(N_samples = length(unique(POINT_ID))) , SURVEY_ID ], on = .(SURVEY_ID = SURVEY_ID) ][ , prop := N_EWM/N_samples , ]
+ # 
+ # 
+ # ggplot(EWMabunds, aes(prop, Rake_abund))+
+ #   geom_point()
+ # 
+ # ggplot(EWMabunds, aes(prop))+
+ #   geom_histogram()
+ # ggplot(EWMabunds, aes(Rake_abund))+
+ #   geom_histogram()
+ # 
+ 
+ # ggplot(EWMabunds, aes(prop, Rake_abund))+
+ #   geom_point()+
+ #   geom_abline(slope = 3, intercept = 1)+
+ #   ylim(c(1,3))
+ 
+ # #scale dependency of invader/native relationships
+ # 
+ # plants[TAXON %in% c("Myriophyllum spicatum", "Potamogeton crispus", "Najas minor", "Typha glauca"), length(unique(TAXON)) , SURVEY_ID  ][ , hist(V1), ]
+ # 
+ # #invasive species count
+ # plants[TAXON %in% c("Myriophyllum spicatum", "Potamogeton crispus", "Najas minor", "Typha glauca"), .(inv_count = length(unique(TAXON))) , SURVEY_ID  ]
+ # 
+ # #richness per survey
+ # plants[!TAXON %in% c("Myriophyllum spicatum", "Potamogeton crispus", "Najas minor", "Typha glauca"), .(inv_count = length(unique(TAXON))) , SURVEY_ID  ]
+ # 
+ # #combine these
+ # inv_nat_rich_lake <- merge(plants[!TAXON %in% c("Myriophyllum spicatum", "Potamogeton crispus", "Najas minor", "Typha glauca"), .(nat_count = length(unique(TAXON))) , SURVEY_ID  ],plants[TAXON %in% c("Myriophyllum spicatum", "Potamogeton crispus", "Najas minor", "Typha glauca"), .(inv_count = length(unique(TAXON))) , SURVEY_ID  ], by = "SURVEY_ID", all = T)
+ # 
+ # inv_nat_rich_lake[is.na(nat_count), nat_count := 0]
+ # inv_nat_rich_lake[is.na(inv_count), inv_count := 0]
+ # 
+ # ggplot(inv_nat_rich_lake, aes(jitter(nat_count), jitter(inv_count)))+
+ #   geom_point()+
+ #   geom_smooth()
+ # 
+ # 
+ #' #combine these
+ #' inv_nat_rich_point <- merge(plants[!TAXON %in% c("Myriophyllum spicatum", "Potamogeton crispus", "Najas minor", "Typha glauca"), .(nat_count = length(unique(TAXON))) , POINT_ID  ],plants[TAXON %in% c("Myriophyllum spicatum", "Potamogeton crispus", "Najas minor", "Typha glauca"), .(inv_count = length(unique(TAXON))) , POINT_ID  ], by = "POINT_ID", all = T)
+ #'
+ #' inv_nat_rich_point[is.na(nat_count), nat_count := 0]
+ #' inv_nat_rich_point[is.na(inv_count), inv_count := 0]
+ #'
+ #' ggplot(inv_nat_rich_point, aes(jitter(nat_count), jitter(inv_count)))+
+ #'   geom_point()+
+ #'   geom_smooth(method = "lm")
+ #'
+ #' inv_nat_rich_lake <- merge(inv_nat_rich_lake, EWMabunds, by = "SURVEY_ID")
+ #'
+ #' inv_nat_rich_lake[is.na(prop), prop := 0]
+ #'
+ #' ggplot(inv_nat_rich_lake, aes(nat_count, prop))+
+ #'   geom_point()
+ #'
+ #' ggplot(inv_nat_rich_lake, aes(nat_count, Rake_abund))+
+ #'   geom_point()
+ #'
+ #' hist(plants[ , length(unique(TAXON)) , SURVEY_ID][ , V1])
+ #'
+ #' plants[TAXON == "Ruppia cirrhosa", .N, .(SURVEY_ID,SURVEY_DATE,DATASOURCE,SURVEYOR,LAKE_NAME,DOW)]
+ #'
+ #' plants[TAXON == "Potamogeton perfoliatus", .N, .(SURVEY_ID,SURVEY_DATE,DATASOURCE,SURVEYOR,LAKE_NAME,DOW)]
+ #'
+ #' taxalist <- plants[ , .N , TAXON]
+ #'
+ #' #' Aggregate the data up to the survey level
+ #'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   # cursor catcher

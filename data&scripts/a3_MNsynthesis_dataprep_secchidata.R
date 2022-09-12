@@ -49,7 +49,7 @@ summary(plants[ , unique(DOW) , ]%in%secchi[ ,DOW ,])
 #how many surveys are missing a secchi for that year?
 summary(plants[ , .N ,.(DOW,YEAR) ][,paste(DOW,YEAR, sep = "_"),] %in% secchi[ ,paste(DOW,YEAR, sep = "_") ,])
 
-# add secchi data to each survey ---------------------------------------------------------
+# evaluate fuzzy temporal joins (+/- 0 to 3yr) ---------------------------------------------------------
 
 
 #' # Secchi measurements for each obs:
@@ -96,11 +96,19 @@ matching.summ <-
 
 (matching.summ <- transform(matching.summ, Prop.matched = round(Matched.surveys/Total.surveys, digits = 3)))
 
+
+# choose a timeframe for join ---------------------------------------------
+
+
 # Secchi data to use: +/- 1-year matches w/ multiple secchi readings averaged
 surveys.secchi.final <- surveys.secchi.summer.within1Yr
 surveys.secchi.final[, Source := NULL]
 setnames(surveys.secchi.final, old = c("YEAR.x", "YEAR.y", "MONTH.x", "Date", "MONTH.y"), 
          new = c("YEAR.SURVEY", "YEAR.SECCHI", "MONTH.SURVEY", "DATE.SECCHI", "MONTH.SECCHI"), skip_absent=TRUE)  
+
+
+# calculate metrics for selected data -------------------------------------
+
 # calc useable values and sum stats from each secchi set used by each survey linking to them
 surveys.secchi.final <- surveys.secchi.final[, .(Secchi_m.mean=mean(Secchi_m), YEAR.SECCHI.mean=mean(YEAR.SECCHI), MONTH.SECCHI.mean=mean(MONTH.SECCHI),
                                                  Secchi_m.min=min(Secchi_m), YEAR.SECCHI.min=min(YEAR.SECCHI), MONTH.SECCHI.min=min(MONTH.SECCHI),
@@ -113,6 +121,10 @@ surveys.secchi.final[Secchi_m.se == "NaN", Secchi_m.se := 0]
 surveys.secchi.final[, .(Secchi_m.length) ]
 surveys.secchi.final[, .(Secchi_m.sd) ]
 
+
+
+# link these to the plants dataset -----------------------------------------------
+
 #' Now that we have secchi data for a prop of the dataset, let's link those data
 #' to the plant surveys 
 
@@ -122,6 +134,8 @@ plants <- merge(plants,surveys.secchi.final, by = c("SURVEY_ID","DOW", "SURVEY_D
 #cleanup intermediate products:
 
 rm(secchi,surveys,surveys.secchi, surveys.secchi.summer, surveys.secchi.summer.sameYr, surveys.secchi.final, surveys.secchi.summer.within1Yr, surveys.secchi.summer.within2Yr, surveys.secchi.summer.within3Yr, matching.summ)
+
+
 
 
 
