@@ -102,7 +102,11 @@
     surveys <- fread(file = "data&scripts/data/output/surveys_aqplants.csv")
   
     # other companion data like watershed & lake geodata, MN plants checklist, watershed aggregation of plants database
+<<<<<<< HEAD
     load("data&scripts/data/output/synthesis_script_datasets.Rdata")
+=======
+    load("synthesis_script_datasets.Rdata")
+>>>>>>> 66ffd98ffdee3519f940daac17772883775fcfa2
 
   #managemnt data is cleaned in a companion script & leaves data loaded into ws
   source(file = "data&scripts/b1_community_assy_analysis.R") # will load and clean management data and leave in WS a mgmtdata file
