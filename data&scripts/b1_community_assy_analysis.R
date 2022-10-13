@@ -329,7 +329,7 @@ surveys2[ , c("april", "may", "june", "july", "august", "september") := NULL]
 
 names(surveys2) <- tolower(names(surveys2))
 
-# surveys2[ county == ""]
+surveys2[ county == ""]
 surveys2 <- surveys2[!county == ""]
 
 # use county and lake to get DOWs for surveys 2 ---------------------------------------------
@@ -353,7 +353,7 @@ surveys2[county == "ottertail", county := "otter tail"]
 surveys2[county == "todd & stearns", county := "todd" ]
 
 # consider merging to other data on lake & county (this is a smaller pool of candidates)
-# surveys2[ , unique(lakename) ]
+surveys2[ , unique(lakename) ]
 surveys2[str_detect(lakename, "\x92"), lakename := c("Paul's(Florence)", "North Brown's") ]
 
 surveys2[ , lakename := tolower(lakename)]
@@ -519,11 +519,37 @@ surveys2[ str_detect(lakename, "minnetonka"), subbasin := word(lakename, start =
 
 surveys2[ str_detect(lakename, "minnetonka"), lakename := "minnetonka" , ]
 
-surveys2 <- merge(surveys2, county_name_key, by.x = c("lakename", "county"), by.y = c("pw_basin_n","cty_name"), all.x = T)
+#here we have to edit the code to only join 1:1
+#get a unique list of county - name combos from surveys 2 this is the set we need matches for:
+unique(surveys2[ , .(county, lakename) ,])
+
+county_name_key[ , .N ,.(cty_name, pw_basin_n, dowlknum) ][N>1] #this says when we have DOW in the mix, we've got a clean key
+
+county_name_key[ , .N ,.(cty_name, pw_basin_n) ][N>1]# these are the cases where mult dows for a lakename in a county
+
+county_name_key[ , n_occ_cty := .N ,.(cty_name, pw_basin_n) ]
+
+county_name_key[n_occ_cty < 2 ,.N ,.(cty_name, pw_basin_n) ][N>1] # now the county name key is only for clean county-name keys for DOW
+
+
+county_name_key[n_occ_cty < 2][surveys2,,  on = .(pw_basin_n = lakename, cty_name = county), nomatch = 0  ]
+
+# execute assign DOWs based on the clean county-name key set:
+surveys2[county_name_key[n_occ_cty < 2] , dowlknum := dowlknum , on = .(lakename = pw_basin_n, county = cty_name), ]
+
+#deprecated
+# surveys2 <- merge(surveys2, county_name_key, by.x = c("lakename", "county"), by.y = c("pw_basin_n","cty_name"), all.x = T)
+
+names(surveys2)
+
+surveys2[!is.na(downum) & !is.na(dowlknum)]
 
 surveys2[ , dowlknum := as.integer(dowlknum) , ]
 surveys2[is.na(downum), downum := dowlknum]
 
+surveys2[is.na(downum), ]
+
+surveys2[lakename == "big_swan",]
 surveys2[lakename == "big_swan", county := "todd"]
 surveys2[lakename == "big_swan", downum := 77002300]
 
@@ -548,11 +574,58 @@ surveys2[str_detect(lakename, "platte"), downum := 18008800  ]
 surveys2[str_detect(lakename, "riley"), county := "carver"  ]
 surveys2[str_detect(lakename, "riley"), downum := 10000200  ]
 
-#these three are un-resolveable
-# surveys2[is.na(downum)]
 
-surveys2 <- surveys2[!is.na(downum)]
-surveys2[ , c("dowlknum","cty_code") := NULL , ]
+#' The rest of this list was cleaned up (dows assigned) based on a lookup of the
+#' dow number in the lakefinder webpage + newer records in other datsets passed
+#' to us. We assumed that if a more recent record included control for the same
+#' lake x county and had only one dow for that, that that was the dow these old
+#' records reflected. 
+
+surveys2[is.na(downum) & lakename == "margaret", downum := 11022200 ]
+
+surveys2[is.na(downum) & lakename == "round", downum := 18037300 ]
+
+surveys2[is.na(downum) & lakename == "bass", downum := 27009800 ]
+
+surveys2[is.na(downum) & lakename == "cedar", downum := 86022700 ]
+
+surveys2[is.na(downum) & lakename == "clear" & county == "waseca", downum := 81001401 ]
+
+surveys2[is.na(downum) & lakename == "clear" & county == "washington", downum := 82016300	 ]
+
+surveys2[is.na(downum) & lakename == "diamond" , downum := 27012500	 ]
+
+surveys2[is.na(downum) & lakename == "eagle" , downum := 71006700]
+
+surveys2[is.na(downum) & lakename == "elk" , downum := 71005500]
+
+surveys2[is.na(downum) & lakename == "little_elk" , downum := 71005500]
+
+surveys2[is.na(downum) & lakename == "little_pelican" , downum := 56076100]
+
+surveys2[is.na(downum) & lakename == "long" & county == "isanti" , downum := 30007200]
+
+surveys2[is.na(downum) & lakename == "long" & county == "meeker" , downum := 47017700]
+
+surveys2[is.na(downum) & lakename == "long" & county == "morrison" , downum := 49001500]
+
+surveys2[is.na(downum) & lakename == "long" & county == "stearns" , downum := 73013900] # found this record in grants data
+
+surveys2[is.na(downum) & lakename == "long" & county == "washington" , downum := 82011800]# found this record in grants data
+
+surveys2[is.na(downum) & lakename == "madison" , downum := 07004400]
+
+surveys2[is.na(downum) & lakename == "maple" , downum := 86013400]
+
+surveys2[is.na(downum) & lakename == "mink" , downum := 86022900]
+
+surveys2[is.na(downum) & lakename == "pickerel" , downum := 03028700]
+
+surveys2[is.na(downum) & lakename == "sylvia" , downum := 86027900]
+
+surveys2[is.na(downum), , ][order(lakename, county)]
+
+surveys2[ , c("dowlknum") := NULL , ]
 
 surveys2[ , qty := as.numeric(qty) ,]
 
@@ -570,41 +643,39 @@ surveys2[ workdate == "", workdate := com_date ]
 
 surveys2[ ,com_date := NULL ]
 
-#ballantyne throw out
-surveys2 <- surveys2[ !permit == "12W-4031"]
+# #ballantyne throw out (why? it's an October treatment? we gonna keep it )
+# surveys2 <- surveys2[ !permit == "12W-4031"]
 
-surveys2[workdate == "" & herbicide == "AQUATHOL_K" , clp_targeted := T]
-
-surveys2[workdate == "" & herbicide != "AQUATHOL_K" , ewm_targeted := T]
+surveys2[ ,unique(herbicide), ]
+surveys2[ ,unique(workdate), ]
 
 surveys2[str_detect(herbicide, "AQUATHOL") & !workdate == "7" , clp_targeted := T ]
 
-surveys2[str_detect(herbicide, "riclop") & workdate == "6"  , clp_targeted := T]
+surveys2[str_detect(herbicide, "riclop") & str_detect(workdate, "6")  , clp_targeted := T]
 
-surveys2[is.na(clp_targeted), sort(unique(herbicide))]
+surveys2[str_detect(herbicide, "HYDRO") & !workdate == 10 , clp_targeted := T]
 
-# surveys2 <- surveys2[!herbicide %in% c("Potassium Chloride lbs", "Earthtech QZ" )]
-
-# surveys2[herbicide == "october"]
-# 
-# surveys2[permit %in% c("15W-3B107", "12W-2B024", "15W-2B32", "15W-3A123") , , ]
-
-surveys2 <- surveys2[!permit %in% c("15W-3B107", "12W-2B024", "15W-2B32", "15W-3A123") , , ]
-
-# surveys2[is.na(clp_targeted) & is.na(ewm_targeted), .N , .(herbicide, workdate) ]
-
-surveys2[ herbicide %in% c("HYDRO191", "G_HYDRO191"), clp_targeted := T]
+surveys2[ herbicide %in% c("HYDRO191", "G_HYDRO191")& !workdate == 10, clp_targeted := T]
 
 surveys2[herbicide %in% c("Clearcast 2.7GLB"), clp_targeted := T]
 
-surveys2 <- surveys2[!herbicide %in% c("Knockout")]
-surveys2 <- surveys2[!(lakename %in% c("detroit") & is.na(clp_targeted))]
+unique(surveys2[is.na(clp_targeted), .(herbicide, workdate)])
 
-surveys2[is.na(clp_targeted) & is.na(ewm_targeted), ewm_targeted := T ]
+surveys2 <- surveys2[!herbicide %in% c("Potassium Chloride lbs", "Earthtech QZ" )] #zebra mussel control
 
-sum(duplicated(surveys2))
+# surveys2[permit %in% c("15W-3B107", "12W-2B024", "15W-2B32", "15W-3A123") , , ]
 
-surveys2 <- surveys2[!duplicated(surveys2)]
+surveys2 <- surveys2[!permit %in% c("15W-3B107", "12W-2B024", "15W-2B32", "15W-3A123") , , ] #we think these are flowring rush and starry stonewort
+
+# surveys2[is.na(clp_targeted) & is.na(ewm_targeted), .N , .(herbicide, workdate) ]
+
+surveys2 <- surveys2[!herbicide %in% c("Knockout")] # non-aquatic herb--unlikely to be EWM control 
+
+surveys2 <- surveys2[!(lakename %in% c("detroit") & is.na(clp_targeted))]#these are probable flowering rush treatments
+
+surveys2[is.na(clp_targeted) , .N , .(herbicide,workdate) ]
+
+surveys2[is.na(clp_targeted) , ewm_targeted := T ]
 
 surveys2[ , year := as.numeric(year) ,]
 
@@ -742,7 +813,7 @@ mgmtdata[is.na(lakename), lakename := lakename_earlyeraAPM]
 # cleaning on the merged dataset: -----------------------------------------
 
 setcolorder(mgmtdata, c("year", "downum", "lakename", "subbasin"))
-# names(mgmtdata)
+names(mgmtdata)
 
 #target species:
 #ewm
@@ -751,6 +822,8 @@ mgmtdata[ewm_targeted.x == T | ewm_targeted.y == T, ewm_targeted := T ]
 
 mgmtdata[ , c("ewm_targeted.x", "ewm_targeted.y") := NULL , ]
 
+mgmtdata[ , .N , ewm_targeted]
+
 # summary(mgmtdata$ewm_targeted.x)
 #clp
 # summary(mgmtdata[ ,.(clp_targeted, clp_targeted.x, clp_targeted.y),] )
@@ -758,6 +831,9 @@ mgmtdata[ , c("ewm_targeted.x", "ewm_targeted.y") := NULL , ]
 mgmtdata[clp_targeted.x == T | clp_targeted.y == T, clp_targeted := T ]
 
 mgmtdata[ , c("clp_targeted.x", "clp_targeted.y") := NULL , ]
+
+mgmtdata[ , .N , clp_targeted]
+
 
 #which records do we not know the target organism?
 # mgmtdata[is.na(clp_targeted) & is.na(ewm_targeted), .N ,]
@@ -807,8 +883,6 @@ mgmtdata[ , organization := NULL]
 
 mgmtdata[is.na(permit) , permit := permit_number ,]
 mgmtdata[ , permit_number := NULL]
-
-
 
 
 # mgmtdata[ , .(total_cut_area_acres_surveys, total_treated_area_acres_surveys, acrestreated, comacrec, comacrm)]
@@ -903,9 +977,23 @@ mgmtdata <- mgmtdata[!duplicated(mgmtdata), , ]
 
 mgmtdata[ , records := .N, .(year, downum, lakename)]
 
+mgmtdata[ , .N , .(clp_targeted, ewm_targeted)  ]
+
+mgmtdata[ , .N, .(year, downum, lakename)][ , hist(N, breaks = 80)]
+
+dcast(mgmtdata[ , clp_targeted , .(downum, year, subbasin)][!is.na(clp_targeted)], downum + subbasin ~ year, value.var = "clp_targeted")
+
+dcast(mgmtdata[ , ewm_targeted , .(downum, year, subbasin)][!is.na(ewm_targeted)], downum + subbasin ~ year, value.var = "ewm_targeted")
+
+#' currently, I'm losing all of the pre-2016 data... thats wrong and no bueno. Start there tomorrow!
+
+
+
+
+
 
 # footer ------------------------------------------------------------------
 
 
 
-# On 14 June, 2022 this script resulted in 1785 records for management actions
+# On 14 June, 2022 (WHEN WRITTEN) this script resulted in 1785 records for management actions
