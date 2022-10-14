@@ -11,108 +11,101 @@
 #'---
 
 #' This script will pull in data for PI surveys (point and aggregated to survey
-#' level), + management data. 
+#' level and up to watershed level), it will grab management data and slice out 
+#' surveys from managed lakes. 
 #' 
-#' We then exclude all (this is a hard "all" to figure out)  managed (invaders?, 
-#' drawdowns?, harvested?, watershed WQ efforts?) systems from the data (should
-#' I be doing this?), and analyze invader effects. 
+#' Next we evaluate invaders, light, and species pools as drivers of native 
+#' community Diversity, Richness, and Evenness. The goal of these analyses is to
+#' understand how these factors influence community assembly in aquatic plants.
 #' 
-#' evaluate light, invader competition, and species pools of aquatic plants in
-#' MN Lakes as drivers of community assembly. 
-#' 
-#' 
-#' 
-#' 
-#' 3. Cut managed lakes & redo?
 #'
+#' # Document Preamble
+
+# load libraries ------------------------------------------------------------------
+#+ warning = FALSE
+# # Load Libraries
+library(data.table)
+update_dev_pkg()# remotes::install_github("Rdatatable/data.table")
+library(ggplot2)
+library(stringr)
+# library(sf)
+# library(vegan)
+# library(gridExtra)
+# library(dplyr)
+library(tidyr)
+library(lme4)
+library(sjPlot)
+library(mediation)
+library(ggpubr)
+library(EnvStats)
+library(lmerTest)
+library(merTools)
+library(rstanarm)
+library(janitor)
+library(GGally)
+library(VCA)
+
+# library(maps)
+# library(rgdal)
+# library(ggsn)
+# library(moments)
+# library(shiny)
+# library(plotly)
+# library(ggspatial)
+# library(broom)
+# library(woodson)
 
 
 
-#' ## Document Preamble
-  #+ warning = FALSE
-  # load libraries ------------------------------------------------------------------
-  # # Load Libraries
-  library(data.table)
-    update_dev_pkg()# remotes::install_github("Rdatatable/data.table")
-  # library(ggplot2)
-  library(stringr)
-  # library(sf)
-  # library(vegan)
-  # library(gridExtra)
-  # library(dplyr)
-  library(tidyr)
-  library(lme4)
-  library(sjPlot)
-  library(mediation)
-  library(ggpubr)
-  library(EnvStats)
-  library(lmerTest)
-  library(merTools)
-  library(rstanarm)
-  library(janitor)
-  
-  # library(maps)
-  # library(rgdal)
-  # library(ggsn)
-  # library(moments)
-  # library(shiny)
-  # library(plotly)
-  # library(ggspatial)
-  # library(broom)
-  # library(woodson)
-  # 
-  
-  
-  
-  # load in functions -------------------------------------------------------
-  
-  # ben bolkers CI calc fn (https://github.com/bbolker/asaglmm/blob/master/papers/bolker_chap.rmd)
-  easyPredCIbinom <- function(model,newdata,alpha=0.05) {
-    ## baseline prediction, on the linear predictor (log-odds) scale:
-    pred0 <- predict(model,re.form=NA,newdata=newdata)
-    ## fixed-effects model matrix for new data
-    X <- model.matrix(formula(model,fixed.only=TRUE)[-2],
-                      newdata)
-    beta <- fixef(model) ## fixed-effects coefficients
-    V <- vcov(model)     ## variance-covariance matrix of beta
-    pred.se <- sqrt(diag(X %*% V %*% t(X))) ## std errors of predictions
-    ## inverse-link (logistic) function: could also use plogis()
-    plogis <- model@resp$family$plogis
-    ## construct 95% Normal CIs on the link scale and
-    ##  transform back to the response (probability) scale:
-    crit <- -qnorm(alpha/2)
-    plogis(cbind(lwr=pred0-crit*pred.se,
-                 upr=pred0+crit*pred.se))
-  }
-  
-  
-  
-  # load in data -------------------------------------------------
-  
-  # this is an observation level dataset (our foundation plant data)
-  plants <- fread(file = "data&scripts/data/output/plants_env_data.csv", drop = 1)
-    
-    #here we have aggregated the plants dataset into a typical format with a "wide" config, and a row for each point or rake throw 
-    plants_occurrence_wide <- fread(file = "data&scripts/data/output/plants_env_data_wide.csv", drop = 1)
-    
-    #here we have thinned to only obs with point level abunds and aggregated to "wide" config with a row for each point or rake throw, species matrix contains relative abundances
-    plants_rakeabund_wide <- fread(file = "data&scripts/data/output/plants_abund_env_data_wide.csv")
-  
-    # here we have aggregated plants dataset to the survey level, each row is a set of survey statistics (richness, diversity, etc.) and a lake level species matrix
-    surveys <- fread(file = "data&scripts/data/output/surveys_aqplants.csv")
-  
-    # other companion data like watershed & lake geodata, MN plants checklist, watershed aggregation of plants database
-<<<<<<< HEAD
-    load("data&scripts/data/output/synthesis_script_datasets.Rdata")
-=======
-    load("synthesis_script_datasets.Rdata")
->>>>>>> 66ffd98ffdee3519f940daac17772883775fcfa2
+# load in functions -------------------------------------------------------
 
-  #managemnt data is cleaned in a companion script & leaves data loaded into ws
-  source(file = "data&scripts/b1_community_assy_analysis.R") # will load and clean management data and leave in WS a mgmtdata file
+# ben bolkers CI calc fn (https://github.com/bbolker/asaglmm/blob/master/papers/bolker_chap.rmd)
+easyPredCIbinom <- function(model,newdata,alpha=0.05) {
+  ## baseline prediction, on the linear predictor (log-odds) scale:
+  pred0 <- predict(model,re.form=NA,newdata=newdata)
+  ## fixed-effects model matrix for new data
+  X <- model.matrix(formula(model,fixed.only=TRUE)[-2],
+                    newdata)
+  beta <- fixef(model) ## fixed-effects coefficients
+  V <- vcov(model)     ## variance-covariance matrix of beta
+  pred.se <- sqrt(diag(X %*% V %*% t(X))) ## std errors of predictions
+  ## inverse-link (logistic) function: could also use plogis()
+  plogis <- model@resp$family$plogis
+  ## construct 95% Normal CIs on the link scale and
+  ##  transform back to the response (probability) scale:
+  crit <- -qnorm(alpha/2)
+  plogis(cbind(lwr=pred0-crit*pred.se,
+               upr=pred0+crit*pred.se))
+}
 
-#' 
-#' 
+
+
+# load in data -------------------------------------------------
+
+# this is an observation level dataset (our foundation plant data)
+plants <- fread(file = "data&scripts/data/output/plants_env_data.csv", drop = 1)
+
+#here we have aggregated the plants dataset into a typical format with a "wide" config, and a row for each point or rake throw 
+plants_occurrence_wide <- fread(file = "data&scripts/data/output/plants_env_data_wide.csv", drop = 1)
+
+#here we have thinned to only obs with point level abunds and aggregated to "wide" config with a row for each point or rake throw, species matrix contains relative abundances
+plants_rakeabund_wide <- fread(file = "data&scripts/data/output/plants_abund_env_data_wide.csv")
+
+# here we have aggregated plants dataset to the survey level, each row is a set of survey statistics (richness, diversity, etc.) and a lake level species matrix
+surveys <- fread(file = "data&scripts/data/output/surveys_aqplants.csv")
+
+# other companion data like watershed & lake geodata, MN plants checklist, watershed aggregation of plants database
+load("data&scripts/data/output/synthesis_script_datasets.Rdata")
+
+#managemnt data is cleaned in a companion script & leaves data loaded into ws
+source(file = "data&scripts/b1_community_assy_analysis.R") # will load and clean management data and leave in WS a mgmtdata file
+
+
+
+# data prep ---------------------------------------------------------------
+
+
+
 #' # Data Prep: 
 #' 
 #' Because of the distinct phenology of CLP, we've got to use estimates of 
@@ -130,348 +123,433 @@
 #' effect. 
 #' 
 #' 
+    
+# CLP metric &  summer surveys ------------------------------------------------
+
 #' ## Spring CLP & Summer surveys:
 #'
 #' Here we calc a spring CLP value and carry it forward to the summer survey
 #' (where native metrics come from). 
 #' 
-  
-  # add a CLP metric to summer surveys where CLP was measured during a reasonable time of year --------
 
-  #put a CLP index into the peak surveys:
-  early_clpsurveys <- surveys[month(DATESURVEYSTART) %in% c(3,4,5,6) , .(SURVEY_ID, DOW, year = year(DATESURVEYSTART), LAKE_NAME, SUBBASIN, Potamogeton_crispus,DATESURVEYSTART, n_points_vegetated, tot_n_samp)  , ]
-  
-  early_clpsurveys[ , potcri_early_vegdfoc := Potamogeton_crispus/n_points_vegetated ]
-  early_clpsurveys[is.na(potcri_early_vegdfoc), potcri_early_vegdfoc := 0]
-  early_clpsurveys[ ,.N , potcri_early_vegdfoc>0]
-  
-  surveys[ , year := year(DATESURVEYSTART) , ]
-  
-  #thin summer surveys to exclude pre june 15
-  summer_surveys <- surveys[yday(DATESURVEYSTART) > 151  , , ]
-  
-  #append early clp metrics to these summer surveys,:
-  
-  summer_surveys[ , joindates := DATESURVEYSTART]
-  early_clpsurveys[ , joindateE := DATESURVEYSTART]
-  
-  
-  summer_surveys <- early_clpsurveys[summer_surveys, on = .(DOW, year, LAKE_NAME, SUBBASIN, joindateE < joindates), mult = "first" ]
-  
-  names(summer_surveys)[names(summer_surveys) == "DATESURVEYSTART"] <- "SPRING_DATESURVEYSTART"
-  names(summer_surveys)[names(summer_surveys) == "SURVEY_ID"] <- "SPRING_SURVEY_ID"
-  names(summer_surveys)[names(summer_surveys) == "Potamogeton_crispus"] <- "SPRING_Potamogeton_crispus"
-  names(summer_surveys)[names(summer_surveys) == "n_points_vegetated"] <- "SPRING_n_points_vegetated"
-  names(summer_surveys)[names(summer_surveys) == "tot_n_samp"] <- "SPRING_tot_n_samp"
-  
-  names(summer_surveys)[names(summer_surveys) == "i.DATESURVEYSTART"] <- "DATESURVEYSTART"
-  names(summer_surveys)[names(summer_surveys) == "i.SURVEY_ID"] <- "SURVEY_ID"
-  names(summer_surveys)[names(summer_surveys) == "i.Potamogeton_crispus"] <- "Potamogeton_crispus"
-  names(summer_surveys)[names(summer_surveys) == "i.n_points_vegetated"] <- "n_points_vegetated"
-  names(summer_surveys)[names(summer_surveys) == "i.tot_n_samp"] <- "tot_n_samp"
-  
-  
-  
-  # Deprecated join method:
-  # summer_surveys <- merge(summer_surveys, early_clpsurveys, by = c("DOW", "year", "LAKE_NAME", "SUBBASIN"), suffixes = c(".summer", ".spring"), all.x = T)
-  
-  summer_surveys[ , hist(potcri_early_vegdfoc)]
-  
-  # #any dups? Y
-  # sum(duplicated(summer_surveys[ ,SURVEY_ID ,]))
-  # 
-  # #get those survey IDs
-  # summer_surveys[duplicated(summer_surveys[ ,SURVEY_ID.summer ,]), ][,SURVEY_ID.summer]
-  # 
-  # #now all rows with those?
-  # summer_surveys[SURVEY_ID.summer %in% summer_surveys[duplicated(summer_surveys[ ,SURVEY_ID.summer ,]), ][,SURVEY_ID.summer], .(DATESURVEYSTART.spring, potcri_early_vegdfoc) , SURVEY_ID.summer]
-  # 
-  # #grab the date of the latest clp survey (many times we have multiple pre June surveys)
-  # keepers <- summer_surveys[SURVEY_ID.summer %in% summer_surveys[duplicated(summer_surveys[ ,SURVEY_ID.summer ,]), ][,SURVEY_ID.summer], .("DATESURVEYSTART.spring"=max(DATESURVEYSTART.spring)) , SURVEY_ID.summer]
-  # 
-  # keepers <- summer_surveys[keepers]
-  # 
-  # keepers[ , DATESURVEYSTART.spring := as.Date(DATESURVEYSTART.spring) ,]
-  # keepers[ , year := as.integer(year) ]
-  # 
-  # #dump all duplicated summer surveys
-  # summer_surveys <- summer_surveys[!SURVEY_ID.summer %in% summer_surveys[duplicated(summer_surveys[ ,SURVEY_ID.summer ,]), ][,SURVEY_ID.summer], ]
-  # 
-  # #re-add in those keepers
-  # summer_surveys <- rbind(summer_surveys, keepers)
-  # 
-  # rm(keepers)
-  
-  #verify that summer surveys has clp spring data (NA indicates no spring survey was conducted capable of evaluating CLP abundance):
-  
-  summer_surveys[ , .N , SPRING_Potamogeton_crispus==0]
+#put a CLP index into the peak surveys:
+early_clpsurveys <- surveys[month(DATESURVEYSTART) %in% c(3,4,5,6) , .(SURVEY_ID, DOW, year = year(DATESURVEYSTART), LAKE_NAME, SUBBASIN, Potamogeton_crispus,DATESURVEYSTART, n_points_vegetated, tot_n_samp)  , ]
 
-  # bring in mgmt data ------------------------------------------------------
+early_clpsurveys[ , potcri_early_vegdfoc := Potamogeton_crispus/n_points_vegetated ]
+early_clpsurveys[is.na(potcri_early_vegdfoc), potcri_early_vegdfoc := 0]
+early_clpsurveys[ ,.N , potcri_early_vegdfoc>0]
+
+surveys[ , year := year(DATESURVEYSTART) , ]
+
+#thin summer surveys to exclude pre june 15
+summer_surveys <- surveys[yday(DATESURVEYSTART) > 151  , , ]
+
+#append early clp metrics to these summer surveys,:
+
+summer_surveys[ , joindates := DATESURVEYSTART]
+early_clpsurveys[ , joindateE := DATESURVEYSTART]
+
+
+summer_surveys <- early_clpsurveys[summer_surveys, on = .(DOW, year, LAKE_NAME, SUBBASIN, joindateE < joindates), mult = "first" ]
+
+names(summer_surveys)[names(summer_surveys) == "DATESURVEYSTART"] <- "SPRING_DATESURVEYSTART"
+names(summer_surveys)[names(summer_surveys) == "SURVEY_ID"] <- "SPRING_SURVEY_ID"
+names(summer_surveys)[names(summer_surveys) == "Potamogeton_crispus"] <- "SPRING_Potamogeton_crispus"
+names(summer_surveys)[names(summer_surveys) == "n_points_vegetated"] <- "SPRING_n_points_vegetated"
+names(summer_surveys)[names(summer_surveys) == "tot_n_samp"] <- "SPRING_tot_n_samp"
+
+names(summer_surveys)[names(summer_surveys) == "i.DATESURVEYSTART"] <- "DATESURVEYSTART"
+names(summer_surveys)[names(summer_surveys) == "i.SURVEY_ID"] <- "SURVEY_ID"
+names(summer_surveys)[names(summer_surveys) == "i.Potamogeton_crispus"] <- "Potamogeton_crispus"
+names(summer_surveys)[names(summer_surveys) == "i.n_points_vegetated"] <- "n_points_vegetated"
+names(summer_surveys)[names(summer_surveys) == "i.tot_n_samp"] <- "tot_n_samp"
+
+summer_surveys[ , hist(potcri_early_vegdfoc)]
   
-  #merge mgmt data on dows & years
-  mgmtdata[ , p_dow := round(downum/100, 0) ,]
-  summer_surveys[ , p_dow := round(DOW/100, 0) , ]
+summer_surveys[ , .N , SPRING_Potamogeton_crispus==0]
+
+# bring in mgmt data ------------------------------------------------------
+
+#' ## Management Data
+#' 
+#' check out the management data, and link it up to the surveys. Our goal is to 
+#' be able to exclude managed systems from these analyses. 
+
+#merge mgmt data on dows & years
+mgmtdata[ , p_dow := round(downum/100, 0) ,]
+summer_surveys[ , p_dow := round(DOW/100, 0) , ]
+
+#gotta deal with subbasin exents
+summer_surveys[ , sort(unique(SUBBASIN)) ,]
+
+#minnetonka
+summer_surveys[str_detect(LAKE_NAME, "inneto"), sort(unique(SUBBASIN))]
+mgmtdata[str_detect(lakename, "innet") , sort(unique(lakename)) ,]
+mgmtdata[str_detect(lakename, "innet") , sort(unique(subbasin)) ,]
+mgmtdata[str_detect(lakename, "innet") , subbasin := word(lakename, -1, sep = "-") , ]
+mgmtdata[str_detect(lakename, "innet") , lakename := "minnetonka"]
+#grays bay
+mgmtdata[str_detect(lakename, "innet") &
+           str_detect(subbasin, "gray") , subbasin := "Grays Bay"]
+#lower lake
+mgmtdata[str_detect(lakename, "innet") &
+           str_detect(subbasin, "lower") , subbasin := "Lower Lake"]
+#carsons bay
+mgmtdata[str_detect(lakename, "innet") &
+           str_detect(subbasin, "carsons") , subbasin := "Carsons Bay"]
+#crystal bay
+mgmtdata[str_detect(lakename, "innet") &
+           str_detect(subbasin, "crystal") , subbasin := "Crystal Bay"]
+#st.albans
+mgmtdata[str_detect(lakename, "innet") &
+           str_detect(subbasin, "albans") , subbasin := "St Albans Bay"]
+#northarm
+mgmtdata[str_detect(lakename, "innet") &
+           str_detect(subbasin, "orth") , subbasin := "North Arm Bay" ]
+#halsteads
+mgmtdata[str_detect(lakename, "innet") &
+           str_detect(subbasin, "halsted") , subbasin := "Halsteads Bay" ]
+#upper
+mgmtdata[str_detect(lakename, "innet") &
+           str_detect(subbasin, "upper") , subbasin := "Upper Lake" ]
+
+#compress to lake-year
+mgmtdata[ , .N , .(downum,year)][N>1]
+mgmtdata[records >1]
+
+simp_mgmt <- mgmtdata[ , .N , .(lakename, year, downum) , ]
+
+simp_mgmt[mgmtdata[ewm_targeted==T], ewmtargeted := ewm_targeted, on = .(lakename, year, downum)]
+
+simp_mgmt[mgmtdata[clp_targeted==T], clptargeted := clp_targeted, on = .(lakename, year, downum)]
+
+summary(simp_mgmt)
+
+fullmgmtdata <- mgmtdata
+
+mgmtdata <- simp_mgmt
+
+names(mgmtdata)[names(mgmtdata) == "downum"] <- "DOW"
+
+summer_surveys[ , .N , Myriophyllum_spicatum>0]
+
+summer_surveys[mgmtdata, clp_targeted := clptargeted  , on = .(DOW, year)]
+summer_surveys[mgmtdata, ewm_targeted := ewmtargeted  , on = .(DOW, year)]
+
+
+summer_surveys[ , .N , clp_targeted]
+summer_surveys[ , .N , ewm_targeted]
+
+#summary stats
+
+summer_surveys[ , summary(clp_targeted) ,]
+summer_surveys[potcri_early_vegdfoc > 0 , summary(clp_targeted) ,]
+summer_surveys[is.na(potcri_early_vegdfoc) & clp_targeted == T , .(year, LAKE_NAME, DATASOURCE, DATESURVEYSTART )  ,]
+summer_surveys[ , summary(ewm_targeted) ,]
+summer_surveys[Myriophyllum_spicatum > 0 , summary(ewm_targeted) ,]
+summer_surveys[Myriophyllum_spicatum == 0 & ewm_targeted == T , .(year, LAKE_NAME, DATASOURCE, DATESURVEYSTART)  ,]
+
+summer_surveys[is.na(clp_targeted), .N , potcri_early_vegdfoc>0 ]
   
-  #gotta deal with subbasin exents
-  summer_surveys[ , sort(unique(SUBBASIN)) ,]
-  
-  #minnetonka
-  summer_surveys[str_detect(LAKE_NAME, "inneto"), sort(unique(SUBBASIN))]
-  mgmtdata[str_detect(lakename, "innet") , sort(unique(lakename)) ,]
-  mgmtdata[str_detect(lakename, "innet") , sort(unique(subbasin)) ,]
-  mgmtdata[str_detect(lakename, "innet") , subbasin := word(lakename, -1, sep = "-") , ]
-  mgmtdata[str_detect(lakename, "innet") , lakename := "minnetonka"]
-  #grays bay
-  mgmtdata[str_detect(lakename, "innet") &
-             str_detect(subbasin, "gray") , subbasin := "Grays Bay"]
-  #lower lake
-  mgmtdata[str_detect(lakename, "innet") &
-             str_detect(subbasin, "lower") , subbasin := "Lower Lake"]
-  #carsons bay
-  mgmtdata[str_detect(lakename, "innet") &
-             str_detect(subbasin, "carsons") , subbasin := "Carsons Bay"]
-  #crystal bay
-  mgmtdata[str_detect(lakename, "innet") &
-             str_detect(subbasin, "crystal") , subbasin := "Crystal Bay"]
-  #st.albans
-  mgmtdata[str_detect(lakename, "innet") &
-             str_detect(subbasin, "albans") , subbasin := "St Albans Bay"]
-  #northarm
-  mgmtdata[str_detect(lakename, "innet") &
-             str_detect(subbasin, "orth") , subbasin := "North Arm Bay" ]
-  #halsteads
-  mgmtdata[str_detect(lakename, "innet") &
-             str_detect(subbasin, "halsted") , subbasin := "Halsteads Bay" ]
-  #upper
-  mgmtdata[str_detect(lakename, "innet") &
-             str_detect(subbasin, "upper") , subbasin := "Upper Lake" ]
-  
-  #compress to lake-year
-  mgmtdata[ , .N , .(downum,year)][N>1]
-  mgmtdata[records >1]
-  
-  simp_mgmt <- mgmtdata[ , .N , .(lakename, year, downum) , ]
-  
-  simp_mgmt[mgmtdata[ewm_targeted==T], ewmtargeted := ewm_targeted, on = .(lakename, year, downum)]
-  
-  simp_mgmt[mgmtdata[clp_targeted==T], clptargeted := clp_targeted, on = .(lakename, year, downum)]
-  
-  summary(simp_mgmt)
-  
-  fullmgmtdata <- mgmtdata
-  
-  mgmtdata <- simp_mgmt
-  
-  names(mgmtdata)[names(mgmtdata) == "downum"] <- "DOW"
-  
-  summer_surveys[ , .N , Myriophyllum_spicatum>0]
-  
-  summer_surveys[mgmtdata, clp_targeted := clptargeted  , on = .(DOW, year)]
-  summer_surveys[mgmtdata, ewm_targeted := ewmtargeted  , on = .(DOW, year)]
   
   
-  summer_surveys[ , .N , clp_targeted]
-  summer_surveys[ , .N , ewm_targeted]
-  
-  #summary stats
-  
-  summer_surveys[ , summary(clp_targeted) ,]
-  summer_surveys[potcri_early_vegdfoc > 0 , summary(clp_targeted) ,]
-  summer_surveys[is.na(potcri_early_vegdfoc) & clp_targeted == T , .(year, LAKE_NAME, DATASOURCE, DATESURVEYSTART )  ,]
-  summer_surveys[ , summary(ewm_targeted) ,]
-  summer_surveys[Myriophyllum_spicatum > 0 , summary(ewm_targeted) ,]
-  summer_surveys[Myriophyllum_spicatum == 0 & ewm_targeted == T , .(year, LAKE_NAME, DATASOURCE, DATESURVEYSTART)  ,]
-  
-  summer_surveys[is.na(clp_targeted), .N , potcri_early_vegdfoc>0 ]
-  
-  
-  
+# invader metrics ---------------------------------------------------------
+#' ## Invader Abundance Metrics
+
+# visualize "effects" at lake level
+summer_surveys[, myrspi_summer_vegdfoc := Myriophyllum_spicatum/n_points_vegetated]
+summer_surveys[is.na(myrspi_summer_vegdfoc) , myrspi_summer_vegdfoc := 0 , ]
+
+summer_surveys[ , .N , n_points_vegetated>0 ]
+summer_surveys[ , .N , myrspi_summer_vegdfoc>0]
+
+summer_surveys[, potcri_summer_vegdfoc := Potamogeton_crispus/n_points_vegetated]
+summer_surveys[is.na(potcri_summer_vegdfoc) , potcri_summer_vegdfoc := 0 , ]
+
+# native metrics ----------------------------------------------------------
+#' ## Native Response Metrics
+#' 
+#' We have measured Diversity, Richness and Evenness for the native plants. 
+#' Lets have a look at the correllations among these responses. In addition, 
+#' we'll grab some summary stats for a table in the paper.
+#' 
+#' I do think that it makes sense to have inv simpsons assigned as zero where it
+#' goes to inf for richness 0. That because the effective number of species is 
+#' zero when there are zero species (i.e., it seems logical).
+#' 
+#' I don't think that we want to be coercing the NAs in evenness to zero. It
+#' just doesn't make sense. Evenness of a 0 species community is NA. 
+
+#lake level
+summer_surveys[ ,summary(simpsons_div_nat) ,]
+summer_surveys[ ,summary(nat_richness) ,]
+summer_surveys[ ,summary(simpsons_div_nat/nat_richness) ,]
+# evenness produces NAs because of zero richness values -- 
+summer_surveys[nat_richness == 0 , .N ,  ]
+summer_surveys[ , nat_evenness := simpsons_div_nat/nat_richness, ]
+
+
+#watershed level
+names(watershed_occurrence_wide)
+watershed_occurrence_wide[ , summary(n_species) ,] # this is total richness
+
+# native richness
+natcols <- names(watershed_occurrence_wide)[4:235][!names(watershed_occurrence_wide)[4:235] %in% c(rte[native_status == "I", mn_dnr_scientific_name],
+                                                                            "Nitellopsis", "Typha glauca")]
+watershed_occurrence_wide[ ,  nat_richness := rowSums(watershed_occurrence_wide[ , .SD, .SDcols = natcols] > 0), ]
+watershed_occurrence_wide[ ,summary(nat_richness)]
+watershed_occurrence_wide[simpson_div == Inf , simpson_div := 0 ,]
+watershed_occurrence_wide[ , summary(simpson_div) ,]
+watershed_occurrence_wide[ , nat_evenness := simpson_div/nat_richness, ]
+watershed_occurrence_wide[ , summary(nat_evenness), ]
+#add area to these
+watershed_occurrence_wide[watersheds_huc8, on = .(watershed=major), acres := acres ]
+
+
+#point level
+plants_rakeabund_wide[ , summary(nat_richness) ,]
+plants_rakeabund_wide[simpsons_div_nat == Inf , simpsons_div_nat := 0 ,]
+plants_rakeabund_wide[ , summary(simpsons_div_nat) , ]
+plants_rakeabund_wide[ , nat_evenness := simpsons_div_nat/nat_richness, ]
+plants_rakeabund_wide[ , summary(nat_evenness), ]
+
+#median area for each scale
+watershed_occurrence_wide[ , summary(acres)]
+summer_surveys[ , summary(acres.x) , ]
+
+#sample sizes by scale
+watershed_occurrence_wide[!is.na(watershed), .N , ]
+summer_surveys[ , .N ,]
+plants_rakeabund_wide[ , .N ,]
+
+#correlations and viz.
+# plot covariance and correllation coefs (r) from the niche axes
+
+# evenness is zero only where the richness is zero... and evenness of zero might not be a meaningful thing, so lets drop those here 
+
+ggpairs(summer_surveys[!is.na(nat_evenness),.(simpsons_div_nat, nat_richness, nat_evenness ) ,], lower = list(continuous = "smooth"), aes(fill = NULL))
+
+ggpairs(watershed_occurrence_wide[!is.na(nat_evenness) ,.(simpson_div, nat_richness, nat_evenness ) ,], lower = list(continuous = "smooth"), aes(fill = NULL))
+
+ggpairs(plants_rakeabund_wide[!is.na(nat_evenness),.(simpsons_div_nat, nat_richness, nat_evenness ) ,], lower = list(continuous = "smooth"), aes(fill = NULL))
+
+
+#and we'll use a VCA to examine where diversity is coming from in out data
+
+# names(plants_rakeabund_wide)
+# 
+# varPlot(form = simpsons_div_nat~DOW/watershed, 
+#        Data=plants_rakeabund_wide)    
+# 
+# fitVCA(form=proplight~lake/site/plot + year, 
+#        Data=community[!quadrat == "m" ])
+
+
+
+
+# data analysis -----------------------------------------------------------
+
+#' # Data Analysis
+#' 
+#' Now we will have a look at how invaders, light, and species pools are related
+#' to the Diversity Richness & Evenness (DRE) of native plant communities.
+
 # viz lake level invader effects ----------------------------------------------
+#' ## Competition
+#' 
+#' We're going to take a look at the lake and point scale influence of invaders
+#' on native species. Some things to keep an eye out for in these analyses
+#' 1. We're looking at only invaders as the independent variable
+#' 2. We have 3 metrics for native responses (DRE)
+#' 3. We're interested in how the two species of invader's differ in these
+#' relationships to natives.
+#' 4. We'll be doing a two-step style analysis, first asking how the presence of
+#' the invader influences natives, then asking how increasing invader abundance 
+#' is related to natives
+#' 
+#' 
+#' Before we do our analyses, lets visualize the relationships that are of
+#' interest to us. 
+#' 
+#' ### Viz - lake level invader effects
 
-#' ## Lake - P/A - Abund - Inv Eff - Viz
+# presence absence lake scale boxplots ------------------------------------
+# grab out just the rows where each invader could be estimated & make a plot table
+clpboxplot <- summer_surveys[!is.na(potcri_early_vegdfoc), "inv.pres" := potcri_early_vegdfoc > 0 ] # here we exclude summer surveys with no early clp survey
+clpboxplot[ , species := "CLP" ,]
+clpboxplot <- clpboxplot[!is.na(inv.pres) , .SD , .SDcols = c("inv.pres", "species", "nat_richness", "simpsons_div_nat")]
 
-  # visualize "effects" at lake level
-  summer_surveys[, myrspi_summer_vegdfoc := Myriophyllum_spicatum/n_points_vegetated]
-  summer_surveys[is.na(myrspi_summer_vegdfoc) , myrspi_summer_vegdfoc := 0 , ]
-  
-  summer_surveys[ , .N , n_points_vegetated>0 ]
-  summer_surveys[ , .N , myrspi_summer_vegdfoc>0]
-  
-  summer_surveys[, potcri_summer_vegdfoc := Potamogeton_crispus/n_points_vegetated]
-  summer_surveys[is.na(potcri_summer_vegdfoc) , potcri_summer_vegdfoc := 0 , ]
-  
-  # figure 1: combined lake level CLP & EWM abundance effects
-  
-  legend_colors <- c("potcri_early_vegdfoc" = "blue", "myrspi_summer_vegdfoc" = "red")
-  INV_ENSpie <- ggplot()+
-    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-               aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
-               alpha = 0.4)+
-    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-               aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_vegdfoc"),
-               alpha = 0.4)+
-    # geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-    #             aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_vegdfoc"),
-    #             method = "lm")+
-    # geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-    #             aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
-    #             method = "lm")+
-    xlab("Invader Lakewide Prevalence")+
-    ylab("Native Species ENSpie")+
-    ggtitle("INVADED LAKE SURVEYS")+
-    labs(color = NULL) +
-    scale_color_manual(values = legend_colors, labels = c("Potamogeton crispus","Myriophyllum spicatum"))+
-    theme_bw()+
-    theme(legend.position = c(0.6, 0.8), legend.background = element_blank(), legend.text = element_text(face = "italic"))
-  
-  
-  
-  INV_richness <- ggplot()+
-    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-               aes(potcri_early_vegdfoc, nat_richness),
-               alpha = 0.4, color = "red")+
-    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-               aes(myrspi_summer_vegdfoc, nat_richness),
-               alpha = 0.4, color = "blue")+
-    # geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-    #             aes(potcri_early_vegdfoc, nat_richness),
-    #             method = "lm", color = "red")+
-    # geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-    #             aes(myrspi_summer_vegdfoc, nat_richness),
-    #             method = "lm", color = "blue")+
-    xlab(NULL)+
-    ylab("Richness")+
-    ggtitle("")+
-    theme_bw()+
-    theme(axis.text.y.left = element_text(angle = 90))
-  INV_evenness <- ggplot()+
-    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-               aes(potcri_early_vegdfoc, simpsons_div_nat/nat_richness),
-               alpha = 0.4, color = "red")+
-    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-               aes(myrspi_summer_vegdfoc, simpsons_div_nat/nat_richness),
-               alpha = 0.4, color = "blue")+
-    geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-                aes(potcri_early_vegdfoc, simpsons_div_nat/nat_richness),
-                method = "lm", color = "red", lty = 2, se =F)+
-    geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-                aes(myrspi_summer_vegdfoc, simpsons_div_nat/nat_richness),
-                method = "lm", color = "blue", lty = 2, se =F)+
-    xlab("Invader Lakewide Prevalence")+
-    ylab("Evenness")+
-    theme_bw()+
-    theme(axis.text.y.left = element_text(angle = 90))
-  
-  ggarrange(INV_ENSpie, ggarrange(INV_richness, INV_evenness, ncol = 1))
-  
-  
-  #presence absence lake scale boxplots
-  
-  clpboxplot <- summer_surveys[!is.na(potcri_early_vegdfoc) & is.na(clp_targeted),
-                               "inv.pres" := potcri_early_vegdfoc > 0 ]
-  clpboxplot[ , species := "CLP" ,]
-  clpboxplot <- clpboxplot[!is.na(inv.pres) , .SD , .SDcols = c("inv.pres", "species", "nat_richness", "simpsons_div_nat")]
-  
-  ewmboxplot <- summer_surveys[!is.na(myrspi_summer_vegdfoc) & is.na(ewm_targeted),
-                               "inv.pres" := myrspi_summer_vegdfoc > 0 ]
-  ewmboxplot[ , species := "EWM" ,]
-  ewmboxplot <- ewmboxplot[!is.na(inv.pres) , .SD , .SDcols = c("inv.pres", "species", "nat_richness", "simpsons_div_nat")]
-  
-  boxplot_data <- rbind(ewmboxplot,clpboxplot)
-  rm(clpboxplot, ewmboxplot)
-  
-  boxplot_data[ , evenness := simpsons_div_nat/nat_richness]
-  boxplot_data[is.na(evenness), evenness := 0]
-  
-  
-  
-  boxplot_data <- melt(boxplot_data, id.vars = c("inv.pres","species"), variable.name = "metric", value.name = "value")
-  
-  boxplot_data[ , metric:= factor(metric, levels = c("simpsons_div_nat", "nat_richness", "evenness")),]
-  
-  box1 <- ggplot(data = boxplot_data[metric == "simpsons_div_nat"], aes(species, value, fill = inv.pres))+
-    geom_boxplot()+
-    scale_x_discrete(limits= c("CLP", "EWM"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
-    scale_fill_discrete(limits= c("FALSE", "TRUE"),labels=c("Invader Absent","Invader Present"))+
-    xlab(NULL)+
-    ylab("Native Species ENSpie")+
-    theme_bw()+
-    theme(axis.text.x = element_text( face = "italic"), legend.position = c(.35,.9), legend.title = element_blank(), legend.background = element_blank())+
-    ggtitle("ALL SURVEYS")
-  
-  boxplot_data[metric == "nat_richness", .N, .(species,inv.pres)]
-  
-  box2 <- ggplot(data = boxplot_data[metric == "nat_richness"], aes(species, value, fill = inv.pres))+
-    geom_boxplot()+
-    scale_x_discrete(limits= c("CLP", "EWM"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
-    xlab(NULL)+
-    ylab("Richness")+
-    theme_bw()+
-    theme(axis.text.x = element_blank(), legend.position = "none")+
-    ggtitle("")+
-    theme(axis.text.y.left = element_text(angle = 90))
-  
-  box3 <- ggplot(data = boxplot_data[metric == "evenness"], aes(species, value, fill = inv.pres))+
-    geom_boxplot()+
-    scale_x_discrete(limits= c("CLP", "EWM"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
-    xlab(NULL)+
-    ylab("Evenness")+
-    theme_bw()+
-    theme(axis.text.x = element_text( face = "italic"), legend.position = "none")+
-    theme(axis.text.y.left = element_text(angle = 90))
-  
-  boxps <- ggarrange(box1, ggarrange(box2, box3, ncol = 1,
-                                     labels = c("b","c"),
-                                     label.x = c(0.15,0.15),
-                                     label.y = c(0.85,0.93)),
-                     labels = c("a", ""),
+ewmboxplot <- summer_surveys[!is.na(myrspi_summer_vegdfoc),"inv.pres" := myrspi_summer_vegdfoc > 0 ]
+ewmboxplot[ , species := "EWM" ,]
+ewmboxplot <- ewmboxplot[!is.na(inv.pres) , .SD , .SDcols = c("inv.pres", "species", "nat_richness", "simpsons_div_nat")]
+
+boxplot_data <- rbind(ewmboxplot,clpboxplot)
+rm(clpboxplot, ewmboxplot)
+
+boxplot_data[ , evenness := simpsons_div_nat/nat_richness]
+# boxplot_data[is.na(evenness), evenness := 0] 
+
+boxplot_data <- melt(boxplot_data, id.vars = c("inv.pres","species"), variable.name = "metric", value.name = "value")
+boxplot_data[ , metric:= factor(metric, levels = c("simpsons_div_nat", "nat_richness", "evenness")),]
+
+box1 <- ggplot(data = boxplot_data[metric == "simpsons_div_nat"], aes(species, value, fill = inv.pres))+
+  geom_boxplot()+
+  scale_x_discrete(limits= c("CLP", "EWM"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
+  scale_fill_discrete(limits= c("FALSE", "TRUE"),labels=c("Invader Absent","Invader Present"))+
+  xlab(NULL)+
+  ylab("Native Species ENSpie")+
+  theme_bw()+
+  theme(axis.text.x = element_text( face = "italic"), legend.position = c(.35,.9), legend.title = element_blank(), legend.background = element_blank())+
+  ggtitle("ALL SURVEYS")
+
+boxplot_data[metric == "nat_richness", .N, .(species,inv.pres)]
+
+box2 <- ggplot(data = boxplot_data[metric == "nat_richness"], aes(species, value, fill = inv.pres))+
+  geom_boxplot()+
+  scale_x_discrete(limits= c("CLP", "EWM"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
+  xlab(NULL)+
+  ylab("Richness")+
+  theme_bw()+
+  theme(axis.text.x = element_blank(), legend.position = "none")+
+  ggtitle("")+
+  theme(axis.text.y.left = element_text(angle = 90))
+
+box3 <- ggplot(data = boxplot_data[metric == "evenness"], aes(species, value, fill = inv.pres))+
+  geom_boxplot()+
+  scale_x_discrete(limits= c("CLP", "EWM"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
+  xlab(NULL)+
+  ylab("Evenness")+
+  theme_bw()+
+  theme(axis.text.x = element_text( face = "italic"), legend.position = "none")+
+  theme(axis.text.y.left = element_text(angle = 90))
+
+boxps <- ggarrange(box1, ggarrange(box2, box3, ncol = 1,
+                                   labels = c("b","c"),
+                                   label.x = c(0.15,0.15),
+                                   label.y = c(0.85,0.93)),
+                   labels = c("a", ""),
+                   label.x = 0.15,
+                   label.y = 0.92)
+
+# abundance lake scale regressions ----------------------------------------
+
+
+legend_colors <- c("potcri_early_vegdfoc" = "blue", "myrspi_summer_vegdfoc" = "red")
+INV_ENSpie <- ggplot()+
+  geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
+             aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
+             alpha = 0.1)+
+  geom_point(data = summer_surveys[potcri_early_vegdfoc > 0],
+             aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_vegdfoc"),
+             alpha = 0.1)+
+  geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 ],
+              aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_vegdfoc"),
+              method = "loess", lty = 2, se = F)+
+  geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
+              aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
+              method = "loess", lty = 2, se = F)+
+  xlab("Invader Lakewide Prevalence")+
+  ylab("Native Species ENSpie")+
+  ggtitle("INVADED LAKE SURVEYS")+
+  labs(color = NULL) +
+  scale_color_manual(values = legend_colors, labels = c("Potamogeton crispus","Myriophyllum spicatum"))+
+  theme_bw()+
+  theme(legend.position = c(0.6, 0.8), legend.background = element_blank(), legend.text = element_text(face = "italic"))
+
+
+
+INV_richness <- ggplot()+
+  geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 ],
+             aes(potcri_early_vegdfoc, nat_richness),
+             alpha = 0.1, color = "red")+
+  geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
+             aes(myrspi_summer_vegdfoc, nat_richness),
+             alpha = 0.1, color = "blue")+
+  geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 ],
+              aes(potcri_early_vegdfoc, nat_richness),
+              method = "loess", color = "red", lty = 2, se = F)+
+  geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
+              aes(myrspi_summer_vegdfoc, nat_richness),
+              method = "loess", color = "blue", lty = 2, se = F)+
+  xlab(NULL)+
+  ylab("Richness")+
+  ggtitle("")+
+  theme_bw()+
+  theme(axis.text.y.left = element_text(angle = 90))
+
+INV_evenness <- ggplot()+
+  geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
+             aes(potcri_early_vegdfoc, simpsons_div_nat/nat_richness),
+             alpha = 0.1, color = "red")+
+  geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
+             aes(myrspi_summer_vegdfoc, simpsons_div_nat/nat_richness),
+             alpha = 0.1, color = "blue")+
+  geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
+              aes(potcri_early_vegdfoc, simpsons_div_nat/nat_richness),
+              method = "loess", color = "red", lty = 2, se =F)+
+  geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
+              aes(myrspi_summer_vegdfoc, simpsons_div_nat/nat_richness),
+              method = "loess", color = "blue", lty = 2, se =F)+
+  xlab("Invader Lakewide Prevalence")+
+  ylab("Evenness")+
+  theme_bw()+
+  theme(axis.text.y.left = element_text(angle = 90))
+
+# ggarrange(INV_ENSpie, ggarrange(INV_richness, INV_evenness, ncol = 1))
+
+
+abundps <- ggarrange(INV_ENSpie, ggarrange(INV_richness, INV_evenness,
+                                           ncol = 1,
+                                           labels = c("e","f"),
+                                           label.x = c(0.15,0.15),
+                                           label.y = c(0.86,0.95)),
+                     labels = c("d",""),
                      label.x = 0.15,
-                     label.y = 0.92)
-  
-  
-  abundps <- ggarrange(INV_ENSpie, ggarrange(INV_richness, INV_evenness,
-                                             ncol = 1,
-                                             labels = c("e","f"),
-                                             label.x = c(0.15,0.15),
-                                             label.y = c(0.86,0.95)),
-                       labels = c("d",""),
-                       label.x = 0.15,
-                       label.y = 0.91)+
-    border(color = "black", size = 0.8, linetype = NULL)
-  
-  
-  ggarrange(boxps,abundps, ncol = 1)
+                     label.y = 0.91)+
+  border(color = "black", size = 0.8, linetype = NULL)
 
 
+ggarrange(boxps,abundps, ncol = 1)
 
 # tests lake level invader effects ----------------------------------------
-  ## Presence/Abs
-    #### ENSpie
-      # EWM Pres/abs
-      t.test(summer_surveys[!is.na(myrspi_summer_vegdfoc) & myrspi_summer_vegdfoc == 0, simpsons_div_nat ],
-             summer_surveys[!is.na(myrspi_summer_vegdfoc) & myrspi_summer_vegdfoc > 0, simpsons_div_nat ])
-      
-      #CLP Pres/abs
-      t.test(summer_surveys[!is.na(potcri_early_vegdfoc) & potcri_early_vegdfoc == 0, simpsons_div_nat ],
-             summer_surveys[!is.na(potcri_early_vegdfoc) & potcri_early_vegdfoc > 0, simpsons_div_nat ])
-  
-    #### Richness
-    # EWM Pres/abs
-      t.test(summer_surveys[!is.na(myrspi_summer_vegdfoc) & myrspi_summer_vegdfoc == 0, nat_richness ],
-             summer_surveys[!is.na(myrspi_summer_vegdfoc) & myrspi_summer_vegdfoc > 0, nat_richness ])
-      
-      #CLP Pres/abs
-      t.test(summer_surveys[!is.na(potcri_early_vegdfoc) & potcri_early_vegdfoc == 0, nat_richness ],
-             summer_surveys[!is.na(potcri_early_vegdfoc) & potcri_early_vegdfoc > 0, nat_richness ])
-    
-    ####Evenness
-      # EWM Pres/abs
-      t.test(summer_surveys[!is.na(myrspi_summer_vegdfoc) & myrspi_summer_vegdfoc == 0, simpsons_div_nat/nat_richness ],
-             summer_surveys[!is.na(myrspi_summer_vegdfoc) & myrspi_summer_vegdfoc > 0, simpsons_div_nat/nat_richness ])
-  
-    #CLP Pres/abs
-    t.test(summer_surveys[!is.na(potcri_early_vegdfoc) & potcri_early_vegdfoc == 0, simpsons_div_nat/nat_richness ],
-           summer_surveys[!is.na(potcri_early_vegdfoc) & potcri_early_vegdfoc > 0, simpsons_div_nat/nat_richness ])
+
+#' From these plots we can see that the use of abundances of the natives (i.e
+#' going from richness to evenness) doesn't seem to change too much. However, we
+#' do see an important change when we use abundance of invader as the predictor:
+#' the invader - richness relationship seems to reverse!
+#' 
+#' The other thing we can see here is that both CLP & EWM seem to have really 
+#' similar relationships to native species (not visually much interesting going
+#' on there).
+#' 
+#' ### Tests - lake level invader effects  
+#' 
+#' Here we'll make three tests (DRE) for each species (EWM/CLP) and data type
+#' (p/a v. abund). 
+#' 
+summer_surveys[ ,summary(dowlknum)] 
+summer_surveys[ , DOW := as.factor(DOW) ,]
+
+#Diversity
+D_pa_ewm_lake <- lmer(simpsons_div_nat ~ (myrspi_summer_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys)
+summary(D_pa_ewm_lake)
+
+D_pa_clp_lake <- lmer(simpsons_div_nat ~ (potcri_early_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys)
+summary(D_pa_clp_lake)
+
+#Richness
+R_pa_ewm_lake <- glmer(nat_richness ~ (myrspi_summer_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = poisson())
+summary(R_pa_ewm_lake)
+
+R_pa_clp_lake <- glmer(nat_richness ~ (potcri_early_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = poisson())
+summary(R_pa_clp_lake)
+
+#Evenness
+E_pa_ewm_lake <- glmer(nat_evenness ~ (myrspi_summer_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = binomial())
+summary(E_pa_ewm_lake)
+
+E_pa_clp_lake <- glmer(nat_evenness ~ (potcri_early_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = binomial())
+summary(E_pa_clp_lake)
 
 
 
