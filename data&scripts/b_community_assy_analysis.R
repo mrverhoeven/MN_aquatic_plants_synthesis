@@ -44,6 +44,8 @@ library(rstanarm)
 library(janitor)
 library(GGally)
 library(VCA)
+library(performance)
+library(ggsignif)
 
 # library(maps)
 # library(rgdal)
@@ -551,168 +553,201 @@ summary(E_pa_ewm_lake)
 E_pa_clp_lake <- glmer(nat_evenness ~ (potcri_early_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = binomial())
 summary(E_pa_clp_lake)
 
+# ABUNDANCE 
+#diversity
+EWMabund_nat_lake_ENSpie <- lmer(simpsons_div_nat~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0] )
+summary(EWMabund_nat_lake_ENSpie)
+plot(EWMabund_nat_lake_ENSpie)
+
+CLPabund_nat_lake_ENSpie <- lmer(simpsons_div_nat~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0])
+summary(CLPabund_nat_lake_ENSpie)
+plot(CLPabund_nat_lake_ENSpie)
+
+#Richness
+EWMabund_nat_lake_richness <- glmer(nat_richness~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 ], family = poisson())
+summary(EWMabund_nat_lake_richness)
+plot(EWMabund_nat_lake_richness)
+
+CLPabund_nat_lake_richness <- glmer(nat_richness~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 ] , family = poisson())
+summary(CLPabund_nat_lake_richness)
+plot(CLPabund_nat_lake_richness)
+
+# Evenness
+#EWM Abund
+EWMabund_nat_lake_evenness<- glmer(nat_evenness~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0], family = binomial())
+summary(EWMabund_nat_lake_evenness)
+plot(EWMabund_nat_lake_evenness)
+
+#CLP Abund
+CLPabund_nat_lake_evenness <- glmer(nat_evenness~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 ] , family = binomial())
+summary(CLPabund_nat_lake_evenness)
+plot(CLPabund_nat_lake_evenness)
 
 
-  ## ABUNDANCE 
-    ####ENSPie
-      #EWM Abund
-      EWMabund_nat_lake_ENSpie <- lmer(simpsons_div_nat~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted)] )
-      summary(EWMabund_nat_lake_ENSpie)
-      plot(EWMabund_nat_lake_ENSpie)
+# Compile Model Tables ----------------------------------------------------
+
+summary(D_pa_clp_lake)$coef
+summary(R_pa_clp_lake)$coef
+summary(E_pa_clp_lake)$coef
+
+inv_mods <- rbindlist(
+  list(data.table(summary(D_pa_ewm_lake)$coef, keep.rownames = T),
+       data.table(summary(R_pa_ewm_lake)$coef, keep.rownames = T),
+       data.table(summary(E_pa_ewm_lake)$coef, keep.rownames = T), 
+       data.table(summary(D_pa_clp_lake)$coef, keep.rownames = T),
+       data.table(summary(R_pa_clp_lake)$coef, keep.rownames = T),
+       data.table(summary(E_pa_clp_lake)$coef, keep.rownames = T),
+       data.table(summary(EWMabund_nat_lake_ENSpie)$coef, keep.rownames = T),
+       data.table(summary(EWMabund_nat_lake_richness)$coef, keep.rownames = T),
+       data.table(summary(EWMabund_nat_lake_evenness)$coef, keep.rownames = T),
+       data.table(summary(CLPabund_nat_lake_ENSpie)$coef, keep.rownames = T),
+       data.table(summary(CLPabund_nat_lake_richness)$coef, keep.rownames = T),
+       data.table(summary(CLPabund_nat_lake_evenness)$coef, keep.rownames = T)
+  ), fill = TRUE
+)
+
+inv_mods[ , species := rep(c(rep("Mspi", 6),rep("Pcri", 6)), 2) ]
+inv_mods[ , response := rep(c(rep("Div", 2),rep("Rich", 2), rep("Even", 2)), 4) ]
+
+inv_mods[response == "Rich", Estimate_backtrans := exp(Estimate)]
+inv_mods[response == "Even", Estimate_backtrans := plogis(Estimate)]
+
+inv_mods[response == "Rich", confint_lwr := exp(Estimate - 1.96*`Std. Error`)]
+inv_mods[response == "Rich", confint_upr := exp(Estimate + 1.96*`Std. Error`)]
+
+inv_mods[response == "Even", confint_lwr := plogis(Estimate - 1.96*`Std. Error`)]
+inv_mods[response == "Even", confint_upr := plogis(Estimate + 1.96*`Std. Error`)]
+
+inv_mods[response == "Div", confint_lwr := Estimate - 1.96*`Std. Error`]
+inv_mods[response == "Div", confint_upr := Estimate + 1.96*`Std. Error`]
+
+#' One crummy thing about using mixed effects models is that they tell me it's 
+#' challenging to make model predictions of confidence intervals that do a good
+#' job of incorporating the fixed and random effects variances (or something 
+#' like that).
+#' Since thats the case, we're just going to skip that, and instead we'll just 
+#' plot the estimates, and denote which have significant effects. The code to
+#' model confidence intervals is given in the first prediction, both via bootMer
+#' and mertools:predictInterval. 
+#' 
+#' ### Viz - with test overlay
 
 
-      #CLP Abund
-      CLPabund_nat_lake_ENSpie <- lmer(simpsons_div_nat~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)])
-      summary(CLPabund_nat_lake_ENSpie)
-      plot(CLPabund_nat_lake_ENSpie)
+# visualizations with test results ---------------------------------------------------------
 
-    ####Richness
-      #EWM Abund
-      EWMabund_nat_lake_richness <- glmer(nat_richness~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted)], family = poisson())
-      summary(EWMabund_nat_lake_richness)
-      plot(EWMabund_nat_lake_richness)
-      
-      #CLP Abund
-      CLPabund_nat_lake_richness <- glmer(nat_richness~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)] , family = poisson())
-      summary(CLPabund_nat_lake_richness)
-      plot(CLPabund_nat_lake_richness)
-    
-    #### Evenness
-      #EWM Abund
-      EWMabund_nat_lake_evenness<- glmer(simpsons_div_nat/nat_richness~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted)], family = binomial())
-      summary(EWMabund_nat_lake_evenness)
-      plot(EWMabund_nat_lake_evenness)
-      
-      #CLP Abund
-      CLPabund_nat_lake_evenness <- glmer(simpsons_div_nat/nat_richness~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)] , family = binomial())
-      summary(CLPabund_nat_lake_evenness)
-      plot(CLPabund_nat_lake_evenness)
+#new data spanning abund to predict models from
+# EWM
+newdat1<-data.frame(myrspi_summer_vegdfoc = seq(min(summer_surveys[myrspi_summer_vegdfoc > 0 , myrspi_summer_vegdfoc]), max(summer_surveys[myrspi_summer_vegdfoc > 0 , myrspi_summer_vegdfoc]), length.out = nrow(summer_surveys[myrspi_summer_vegdfoc > 0 ])),
+                    year = summer_surveys[myrspi_summer_vegdfoc > 0 , year],
+                    DOW = summer_surveys[myrspi_summer_vegdfoc > 0 , DOW])
+# CLP
+newdat2<-data.frame(potcri_early_vegdfoc = seq(min(summer_surveys[potcri_early_vegdfoc > 0 , potcri_early_vegdfoc]), max(summer_surveys[potcri_early_vegdfoc > 0 , potcri_early_vegdfoc]), length.out = nrow(summer_surveys[potcri_early_vegdfoc > 0 ])),
+                    year = summer_surveys[potcri_early_vegdfoc > 0 , year],
+                    DOW = summer_surveys[potcri_early_vegdfoc > 0 , DOW])
 
-
-# visualizations from tests ---------------------------------------------------------
-
-  # ENSPie ~ Abund: EWM
-  nrow(summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted)])
-  ## [1] 438
-  newdat1<-data.frame(myrspi_summer_vegdfoc = seq(min(summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted), myrspi_summer_vegdfoc]), max(summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted), myrspi_summer_vegdfoc]), length.out = nrow(summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted)])),
-                      year = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted), year],
-                      DOW = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted), DOW])
-  #fitted values
+# ENSPie ~ Abund: 
+#EWM
+newdat1$fittedD <- predict(EWMabund_nat_lake_ENSpie, newdat1, re.form = NA)
   
-  newdat1$fitted <- predict(EWMabund_nat_lake_ENSpie, newdat1, re.form = NA)
-  
-  preds <- predictInterval(EWMabund_nat_lake_ENSpie, newdat1, which = "fixed", n.sims = 9999)
-  
-  newdat1 <- cbind(newdat1,preds)
-  # newdat1$fitted<-predict(EWMabund_nat_lake_ENSpie, newdat=newdat1, se.fit = TRUE)$fit
+  # #mertools() conf ints, from an estimation process I dont understand :)
+  # preds <- predictInterval(EWMabund_nat_lake_ENSpie, newdat1, which = "fixed", n.sims = 9999, include.resid.var = F)
+  # newdat1 <- cbind(newdat1,preds)
   # 
-  # newdat1$se<-predict(EWMabund_nat_lake_ENSpie, newdat=newdat1, se.fit = TRUE)$se.fit
+  # #fitted confints from bootstrap -- this is the "goldest" standard (aparrently these are all challenging appproximations)
+  # boot_pred1 <- bootMer(EWMabund_nat_lake_ENSpie, predict, nsim = 1000, re.form = NA)
+  # str(boot_pred1
+  # newdat1$lci <- apply(boot_pred1$t, 2, quantile, 0.025)
+  # newdat1$uci <- apply(boot_pred1$t, 2, quantile, 0.975)
+
+#CLP
+newdat2$fittedD <- predict(CLPabund_nat_lake_ENSpie, newdat2, re.form = NA)
   
-  # ENSPie ~ Abund: CLP
-  nrow(summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)])
-  ## [1] 503
-  newdat2<-data.frame(potcri_early_vegdfoc = seq(min(summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted), potcri_early_vegdfoc]), max(summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted), potcri_early_vegdfoc]), length.out = nrow(summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)])),
-                      year = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted), year],
-                      DOW = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted), DOW])
-  #fitted values
+##Richness~Abund: 
+#EWM
+newdat1$fittedR <- exp(predict(EWMabund_nat_lake_richness, newdat1, re.form = NA))
+#CLP
+newdat2$fittedR <- exp(predict(CLPabund_nat_lake_richness, newdat2, re.form = NA))
+
+#Evenness~Abund: 
+#EWM
+newdat1$fittedE <- exp(predict(EWMabund_nat_lake_evenness, newdat1, re.form = NA))
+#CLP
+newdat2$fittedE <- exp(predict(CLPabund_nat_lake_evenness, newdat2, re.form = NA))
   
-  newdat2$fitted <- predict(CLPabund_nat_lake_ENSpie, newdat2, re.form = NA)
-  
-  preds2 <- predictInterval(CLPabund_nat_lake_ENSpie, newdat2, which = "fixed", n.sims = 9999)
-  
-  newdat2 <- cbind(newdat2,preds2)
-  
-  # newdat2$fitted<-predict(CLPabund_nat_lake_ENSpie, newdat=newdat2, se.fit = TRUE)$fit
-  # 
-  # newdat2$se<-predict(CLPabund_nat_lake_ENSpie, newdat=newdat2, se.fit = TRUE)$se.fit
-  
-  
-  
-  legend_colors <- c("potcri_early_vegdfoc" = "blue", "myrspi_summer_vegdfoc" = "red")
-  INV_ENSpie <- ggplot()+
-    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
+#Diversity Plot
+legend_colors <- c("potcri_early_vegdfoc" = "blue", "myrspi_summer_vegdfoc" = "red")
+INV_ENSpie <- ggplot()+
+    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 ],
                aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_vegdfoc"),
-               alpha = 0.4)+
+               alpha = 0.2)+
     geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
                aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
-               alpha = 0.4)+
+               alpha = 0.2)+
     geom_line(data = newdat1, 
-              aes(myrspi_summer_vegdfoc,fit), color = "red", size = 1)+
-    geom_ribbon(data = newdat1, aes(x = myrspi_summer_vegdfoc, ymin=lwr, ymax=upr), color = NA , fill = "red", alpha = .15)+
-    geom_line(data = newdat2, 
-              aes(potcri_early_vegdfoc,fitted), color = "blue", size = 1, lty = 2)+
+              aes(myrspi_summer_vegdfoc,fittedD), color = "red", size = 1.5)+
+    # geom_ribbon(data = newdat1, aes(x = myrspi_summer_vegdfoc, ymin=lci, ymax=uci), color = NA , fill = "red", alpha = .15)+
+    geom_line(data = newdat2,
+              aes(potcri_early_vegdfoc,fittedD), color = "blue", size = 1.5, lty = 2)+
     # geom_ribbon(data = newdat2, aes(x = potcri_early_vegdfoc, ymin=lwr, ymax=upr), color = NA , fill = "blue", alpha = .15)+
-    xlab("Invader Lakewide Prevalence")+
-    ylab("Native Species ENSpie")+
-    ggtitle("INVADED LAKE SURVEYS")+
+    xlab("Invader lakewide prevalence")+
+    ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
+    ggtitle("Invaded Lake Surveys")+
     labs(color = NULL) +
     scale_color_manual(values = legend_colors, labels = c("Potamogeton crispus","Myriophyllum spicatum"))+
     theme_bw()+
     theme(legend.position = c(0.6, 0.9), legend.background = element_blank(), legend.text = element_text(face = "italic"))
   
-  
-  #Richness~Abund: EWM
-  
-  nrow(summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted)])
-  ## [1] 483
-  newdat1<-data.frame(myrspi_summer_vegdfoc = seq(min(summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted), myrspi_summer_vegdfoc]), max(summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted), myrspi_summer_vegdfoc]), length.out = nrow(summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted)])),
-                      year = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted), year],
-                      DOW = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted), DOW])
-  #fitted values
-  
-  newdat1$fitted <- exp(predict(EWMabund_nat_lake_richness, newdat1, re.form = NA))
-  
-  preds <- exp(predictInterval(EWMabund_nat_lake_richness, newdat1, which = "fixed", n.sims = 9999))
-  
-  newdat1 <- cbind(newdat1,preds)
-  
-  # newdat1$fitted<-exp(predict(EWMabund_nat_lake_richness, newdat=newdat1, se.fit = TRUE)$fit)
-  # 
-  # newdat1$se<-exp(predict(EWMabund_nat_lake_richness, newdat=newdat1, se.fit = TRUE)$se.fit)
-  
-  #Richness~Abund: CLP
-  nrow(summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)])
-  ## [1] 488
-  newdat2<-data.frame(potcri_early_vegdfoc = seq(min(summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted), potcri_early_vegdfoc]), max(summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted), potcri_early_vegdfoc]), length.out = nrow(summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)])),
-                      year = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted), year],
-                      DOW = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted), DOW]
-  )
-  #fitted values
-  newdat2$fitted <- exp(predict(CLPabund_nat_lake_richness, newdat2, re.form = NA))
-  
-  preds <- exp(predictInterval(CLPabund_nat_lake_richness, newdat2, which = "fixed", n.sims = 9999))
-  
-  newdat2 <- cbind(newdat2,preds)
-  
-  # 
-  # newdat2$fitted<-exp(predict(CLPabund_nat_lake_richness, newdat=newdat2, se.fit = TRUE)$fit)
-  # 
-  # newdat2$se<-exp(predict(CLPabund_nat_lake_richness, newdat=newdat2, se.fit = TRUE)$se.fit)
-  
-  
-  #plotting:
-  
-  INV_richness <- ggplot()+
-    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
+#Richness plot:
+INV_richness <- ggplot()+
+    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 ],
                aes(potcri_early_vegdfoc, nat_richness),
-               alpha = 0.4, color = "red")+
-    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
+               alpha = 0.2, color = "red")+
+    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
                aes(myrspi_summer_vegdfoc, nat_richness),
-               alpha = 0.4, color = "blue")+
+               alpha = 0.2, color = "blue")+
     geom_line(data = newdat1, 
-              aes(myrspi_summer_vegdfoc,fit), color = "red", size = 1)+
-    geom_ribbon(data = newdat1, aes(x = myrspi_summer_vegdfoc, ymin=lwr, ymax=upr), color = NA , fill = "red", alpha = .15)+
+              aes(myrspi_summer_vegdfoc,fittedR), color = "red", size = 1.5)+
     geom_line(data = newdat2, 
-              aes(potcri_early_vegdfoc,fit), color = "blue", size = 1)+
-    geom_ribbon(data = newdat2, aes(x = potcri_early_vegdfoc, ymin=lwr, ymax=upr), color = NA , fill = "blue", alpha = .15)+
+              aes(potcri_early_vegdfoc,fittedR), color = "blue", size = 1.5)+
     xlab(NULL)+
     ylab("Richness")+
     ggtitle("")+
     theme_bw()+
     theme(axis.text.y.left = element_text(angle = 90))
   
-  
-  
+INV_evenness <- ggplot()+
+    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
+               aes(potcri_early_vegdfoc, simpsons_div_nat/nat_richness),
+               alpha = 0.2, color = "red")+
+    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
+               aes(myrspi_summer_vegdfoc, simpsons_div_nat/nat_richness),
+               alpha = 0.2, color = "blue")+
+    geom_line(data = newdat1, 
+              aes(myrspi_summer_vegdfoc,fittedE), color = "red", size = 1.5, lty = 2)+
+    geom_line(data = newdat2, 
+              aes(potcri_early_vegdfoc,fittedE), color = "blue", size = 1.5)+
+    xlab("Invader lakewide prevalence")+
+    ylab("Evenness")+
+    theme_bw()+
+    theme(axis.text.y.left = element_text(angle = 90))
+
+box1 <- box1+
+  geom_signif(
+    y_position = c(-0.5, -0.5), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("0.144", "0.063"), tip_length = 0, size = 1
+  )
+
+box2 <- box2+
+  geom_signif(
+    y_position = c(-2, -2), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("0.997", "<0.001"), tip_length = 0, size = 1
+  )
+
+box3 <- box3+
+  geom_signif(
+    y_position = c(0.05, 0.05), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("0.313", "<0.001"), tip_length = 0, size = 1
+  )
   
   # remake Figure 1 with predictions from models -----------------------------
   
