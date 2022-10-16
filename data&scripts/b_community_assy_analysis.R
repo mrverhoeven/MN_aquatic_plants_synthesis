@@ -399,10 +399,10 @@ box1 <- ggplot(data = boxplot_data[metric == "simpsons_div_nat"], aes(species, v
   scale_x_discrete(limits= c("CLP", "EWM"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
   scale_fill_discrete(limits= c("FALSE", "TRUE"),labels=c("Invader Absent","Invader Present"))+
   xlab(NULL)+
-  ylab("Native Species ENSpie")+
+  ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
   theme_bw()+
   theme(axis.text.x = element_text( face = "italic"), legend.position = c(.35,.9), legend.title = element_blank(), legend.background = element_blank())+
-  ggtitle("ALL SURVEYS")
+  ggtitle("All Lake Surveys")
 
 boxplot_data[metric == "nat_richness", .N, .(species,inv.pres)]
 
@@ -579,7 +579,7 @@ summary(EWMabund_nat_lake_evenness)
 plot(EWMabund_nat_lake_evenness)
 
 #CLP Abund
-CLPabund_nat_lake_evenness <- glmer(nat_evenness~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 ] , family = binomial())
+CLPabund_nat_lake_evenness <- glmer(nat_evenness~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 ], family = binomial())
 summary(CLPabund_nat_lake_evenness)
 plot(CLPabund_nat_lake_evenness)
 
@@ -670,9 +670,9 @@ newdat2$fittedR <- exp(predict(CLPabund_nat_lake_richness, newdat2, re.form = NA
 
 #Evenness~Abund: 
 #EWM
-newdat1$fittedE <- exp(predict(EWMabund_nat_lake_evenness, newdat1, re.form = NA))
+newdat1$fittedE <- plogis(predict(EWMabund_nat_lake_evenness, newdat1, re.form = NA))
 #CLP
-newdat2$fittedE <- exp(predict(CLPabund_nat_lake_evenness, newdat2, re.form = NA))
+newdat2$fittedE <- plogis(predict(CLPabund_nat_lake_evenness, newdat2, re.form = NA))
   
 #Diversity Plot
 legend_colors <- c("potcri_early_vegdfoc" = "blue", "myrspi_summer_vegdfoc" = "red")
@@ -776,6 +776,14 @@ box3 <- box3+
   # Clean up Workspace:
   # rm(abundps, box1, box2, box3, boxplot_data, boxps, CLP_ENSpie, CLP_evenness, CLP_nat_lake_mod, CLP_richness, CLPabund_nat_lake_ENSpie, CLPabund_nat_lake_evenness, CLPabund_nat_lake_richness)
 
+#' ## Discuss: 
+#' 
+#' It's surprising to me that these trends are significant, but I suppose that 
+#' is owed partly to the large sample sizes we've got. In addition, it should be
+#' noted that not all of our model diagnostics were very satisfactory (check out
+#' the binomial glmer for evenness. 
+#' 
+#' ### Viz - point level invader effects
 
 
 # viz point level rake abund --------------------------------------------------
@@ -787,18 +795,18 @@ point_abund_ENSpie <- ggplot()+
   # geom_boxplot(aes(group = potamogeton_crispus))+
   stat_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
               aes(potamogeton_crispus, simpsons_div_nat, group = survey_id),
-              method = "lm", geom = 'line', se = F, color = "blue", alpha = .08)+
+              method = "lm", geom = 'line', se =F, color = "blue", alpha = .04)+
   geom_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
               aes(potamogeton_crispus, simpsons_div_nat),
-              method = "lm", color = "blue")+
+              method = "lm", color = "blue", size = 1.5)+
   ylab("ENSpie")+
   # theme(legend.position = "none")+
   stat_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
               aes(myriophyllum_spicatum, simpsons_div_nat, group = survey_id),
-              method = "lm", geom = 'line', se = F, color = "red", alpha = .08)+
+              method = "lm", geom = 'line', se = F, color = "red", alpha = .04)+
   geom_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
               aes(myriophyllum_spicatum, simpsons_div_nat),
-              method = "lm", color = "red")+
+              method = "lm", color = "red", size = 1.5)+
   theme_bw()+
   xlab("Relative Abundance of Invader")+
   ggtitle("INVADED SAMPLES")+
@@ -812,23 +820,24 @@ point_abund_richness <- ggplot()+
   # geom_boxplot(aes(group = potamogeton_crispus))+
   stat_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
               aes(potamogeton_crispus, nat_richness, group = survey_id),
-              method = "lm", geom = 'line', se = F, color = "blue", alpha = .08)+
+              method = "lm", geom = 'line', se = F, color = "blue", alpha = .04)+
   geom_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
               aes(potamogeton_crispus, nat_richness),
-              method = "lm", color = "blue")+
+              method = "lm", color = "blue", size = 1.5)+
   ylab("Richness")+
   # theme(legend.position = "none")+
   stat_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
               aes(myriophyllum_spicatum, nat_richness, group = survey_id),
-              method = "lm", geom = 'line', se = F, color = "red", alpha = .08)+
+              method = "lm", geom = 'line', se = F, color = "red", alpha = .04)+
   geom_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
               aes(myriophyllum_spicatum, nat_richness),
-              method = "lm", color = "red")+
+              method = "lm", color = "red", size = 1.5)+
   theme_bw()+
   xlab("Relative Abundance of Invader")+
   scale_y_log10()+
   scale_color_manual(values = legend_colors, labels = c("Potamogeton crispus","Myriophyllum spicatum"))+
   theme_bw()+
+  ggtitle("")+
   theme(legend.position = c(0.6, 0.9), legend.background = element_blank(), legend.text = element_text(face = "italic"))
 
 
@@ -837,18 +846,18 @@ point_abund_evenness <- ggplot()+
   # geom_boxplot(aes(group = potamogeton_crispus))+
   stat_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
               aes(potamogeton_crispus, simpsons_div_nat/nat_richness, group = survey_id),
-              method = "lm", geom = 'line', se = F, color = "blue", alpha = .08)+
+              method = "lm", geom = 'line', se = F, color = "blue", alpha = .04)+
   geom_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
               aes(potamogeton_crispus, simpsons_div_nat/nat_richness),
-              method = "lm", color = "blue")+
+              method = "lm", color = "blue", size = 1.5)+
   ylab("Evenness")+
   # theme(legend.position = "none")+
   stat_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
               aes(myriophyllum_spicatum, simpsons_div_nat/nat_richness, group = survey_id),
-              method = "lm", geom = 'line', se = F, color = "red", alpha = .08)+
+              method = "lm", geom = 'line', se = F, color = "red", alpha = .04)+
   geom_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
               aes(myriophyllum_spicatum, simpsons_div_nat/nat_richness),
-              method = "lm", color = "red")+
+              method = "lm", color = "red", size = 1.5)+
   theme_bw()+
   xlab("Relative Abundance of Invader")+
   scale_y_log10()+
@@ -887,17 +896,17 @@ point_boxes_dat <- melt(point_boxes_dat,
 point_boxes_dat[metric == "nat_div" , .N , .(species, inv.pres)  ]
 
 
-box1 <- ggplot(data = point_boxes_dat[metric == "nat_div"], aes(species, value, fill = inv.pres))+
+box1p <- ggplot(data = point_boxes_dat[metric == "nat_div"], aes(species, value, fill = inv.pres))+
   geom_boxplot()+
-  scale_x_discrete(limits= c("inv_pot_cri", "inv_myr_spi"),labels=c("Potamogeton crispus\nAbsent    Present\nn = 60080    n = 21067","Myriophyllum spicatum\nAbsent    Present\nn = 67088   n = 14059"))+
+  scale_x_discrete(limits= c("inv_pot_cri", "inv_myr_spi"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
   scale_fill_discrete(limits= c("FALSE", "TRUE"),labels=c("Invader Absent","Invader Present"))+
   xlab(NULL)+
   ylab("Native Species ENSpie")+
   theme_bw()+
-  ggtitle("ALL SAMPLES")+
+  ggtitle("All sample points")+
   theme(axis.text.x = element_text( face = "italic"), legend.position = c(.35,.9), legend.title = element_blank(), legend.background = element_blank())
 
-box2 <- ggplot(data = point_boxes_dat[metric == "nat_richness"], aes(species, value, fill = inv.pres))+
+box2p <- ggplot(data = point_boxes_dat[metric == "nat_richness"], aes(species, value, fill = inv.pres))+
   geom_boxplot()+
   scale_x_discrete(limits= c("inv_pot_cri", "inv_myr_spi"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
   xlab(NULL)+
@@ -907,7 +916,7 @@ box2 <- ggplot(data = point_boxes_dat[metric == "nat_richness"], aes(species, va
   ggtitle("")+
   theme(axis.text.y.left = element_text(angle = 90))
 
-box3 <- ggplot(data = point_boxes_dat[metric == "nat_evenness"], aes(species, value, fill = inv.pres))+
+box3p <- ggplot(data = point_boxes_dat[metric == "nat_evenness"], aes(species, value, fill = inv.pres))+
   geom_boxplot()+
   scale_x_discrete(limits= c("inv_pot_cri", "inv_myr_spi"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
   xlab(NULL)+
@@ -916,10 +925,12 @@ box3 <- ggplot(data = point_boxes_dat[metric == "nat_evenness"], aes(species, va
   theme(axis.text.x = element_text( face = "italic"), legend.position = "none")+
   theme(axis.text.y.left = element_text(angle = 90))
 
-point_boxps <- ggarrange(box1, ggarrange(box2, box3, ncol = 1,
-                                         labels = c("b","c"),
-                                         label.x = c(0.15,0.15),
-                                         label.y = c(0.85,0.93)),
+box1bp <- ggarrange(box2p, box3p, ncol = 1,
+          labels = c("b","c"),
+          label.x = c(0.15,0.15),
+          label.y = c(0.85,0.93))
+
+point_boxpsp <- ggarrange(box1p, box1bp,
                          labels = c("a", ""),
                          label.x = 0.15,
                          label.y = 0.92)
@@ -929,70 +940,285 @@ point_boxps <- ggarrange(box1, ggarrange(box2, box3, ncol = 1,
 ggarrange(point_boxps,point_abunds, ncol = 1)
 
 
+#' ### Test - point level invader effects
+#' 
+#' This is an important spot to pause and talk a bit about the nuance of these
+#' figures (and the tests we'll write to evaluate the relationships). At the 
+#' point level, we don't have any way to connect sample locations across time
+#' at least not very many of them. As such, we need to use each survey and
+#' consider in our model the influence of the phenology component of the systems
+#' members. We do that by modeling a polynomial date effect. 
+
 #  test point level rake abund --------------------------------------------
 
-
 #Div:
-summary(lmer(simpsons_div_nat~potamogeton_crispus+ (1 + potamogeton_crispus| survey_id ), data = plants_rakeabund_wide[potamogeton_crispus> 0 & !simpsons_div_nat == Inf]))
+D_ab_clp_point <- lmer(simpsons_div_nat~ poly(yday(survey_date), 2)+  potamogeton_crispus+ (1|dow), data = plants_rakeabund_wide[potamogeton_crispus> 0 , ])
+summary(D_ab_clp_point)
 
-summary(lmer(simpsons_div_nat~myriophyllum_spicatum + (1 + myriophyllum_spicatum| survey_id ), data = plants_rakeabund_wide[myriophyllum_spicatum> 0 & !simpsons_div_nat == Inf]))
+D_ab_ewm_point <- lmer(simpsons_div_nat~poly(yday(survey_date), 2)+ myriophyllum_spicatum + (1 | dow ), data = plants_rakeabund_wide[myriophyllum_spicatum> 0] )
+summary(D_ab_ewm_point)
 
 
 #Rich:
-summary(glmer(nat_richness~potamogeton_crispus+ (1 + potamogeton_crispus| survey_id ), data = plants_rakeabund_wide[potamogeton_crispus> 0], family = poisson()))
+R_ab_clp_point <- glmer(nat_richness~ poly(yday(survey_date), 2) + potamogeton_crispus + (1| dow ), data = plants_rakeabund_wide[potamogeton_crispus> 0], family = poisson())
+summary(R_ab_clp_point)
+plot(R_ab_clp_point)
 
-summary(glmer(nat_richness~myriophyllum_spicatum+ (1 + myriophyllum_spicatum| survey_id ), data = plants_rakeabund_wide[myriophyllum_spicatum> 0], family = poisson()))
+R_ab_ewm_point <- glmer(nat_richness~ poly(yday(survey_date), 2) + myriophyllum_spicatum+ (1| dow ), data = plants_rakeabund_wide[myriophyllum_spicatum> 0], family = poisson())
+summary(R_ab_ewm_point)
 
-#evenness - NEEDS TROUBLESHOOTING
-summary(glmer(simpsons_div_nat/nat_richness~potamogeton_crispus + (1 + potamogeton_crispus| survey_id ), data = plants_rakeabund_wide[potamogeton_crispus> 0 & !simpsons_div_nat == Inf], family = binomial()))
+#evenness
+E_ab_clp_point <- lmer(nat_evenness ~ poly(yday(survey_date), 2) + potamogeton_crispus + (1 | dow ), data = plants_rakeabund_wide[potamogeton_crispus> 0])
+summary(E_ab_clp_point)
+plot(E_ab_clp_point)
 
-summary(glmer(simpsons_div_nat/nat_richness~myriophyllum_spicatum + (1 + myriophyllum_spicatum| survey_id ), data = plants_rakeabund_wide[myriophyllum_spicatum> 0 & !simpsons_div_nat == Inf], family = binomial()))
+E_ab_ewm_point <- lmer(nat_evenness~ poly(yday(survey_date), 2) + myriophyllum_spicatum + (1|dow ), data = plants_rakeabund_wide[myriophyllum_spicatum> 0])
+
+summary(E_ab_ewm_point)
+plot(E_ab_ewm_point)
+
+plants_rakeabund_wide[ , hist(exp(nat_evenness)) , ]
+
+# point level presence/abs ------------------------------------------------
+#Div:
+D_pa_clp_point <- lmer(simpsons_div_nat~ poly(yday(survey_date), 2)+  (potamogeton_crispus>0)+ (1|dow), data = plants_rakeabund_wide)
+summary(D_pa_clp_point)
+
+D_pa_ewm_point <- lmer(simpsons_div_nat~poly(yday(survey_date), 2)+ (myriophyllum_spicatum>0) + (1 | dow ), data = plants_rakeabund_wide )
+summary(D_pa_ewm_point)
+
+
+#Rich:
+R_pa_clp_point <- glmer(nat_richness~ poly(yday(survey_date), 2) + (potamogeton_crispus>0) + (1 | dow ), data = plants_rakeabund_wide, family = poisson(link = "log"))
+summary(R_pa_clp_point)
+plot(R_pa_clp_point)
+
+R_pa_ewm_point <- glmer(nat_richness~ poly(yday(survey_date), 2) + (myriophyllum_spicatum>0) + (1| dow ), data = plants_rakeabund_wide, family = poisson(link = "log"))
+summary(R_pa_ewm_point)
+
+#evenness
+E_pa_clp_point <- lmer(nat_evenness ~ poly(yday(survey_date), 2) + (potamogeton_crispus>0) + (1 | dow ), data = plants_rakeabund_wide)
+summary(E_pa_clp_point)
+plot(E_pa_clp_point)
+
+E_pa_ewm_point <- lmer(nat_evenness~ poly(yday(survey_date), 2) + (myriophyllum_spicatum>0) + (1 |dow ), data = plants_rakeabund_wide)
+summary(E_pa_ewm_point)
+plot(E_pa_ewm_point)
 
 
 
+#' #### Interpret
+#' 
+#' What these results "look" like, is that there is a sig effect in each of the
+#' native response metrics (almost, ewm evenness is marginal).
+#' 
+#' Some notworthy bits here. We've modeled evenness as a gaussian error process
+#' because the modlels are failing somehow when we assess using binomial
+#' distributions. 
+#' 
+#' Now export these model results:
 
-# test point level p/a (only rake data) -----------------------------------
+
+# Compile Model Tables - Point --------------------------------------------
+
+inv_mods_point <- rbindlist(
+  list(data.table(summary(D_pa_ewm_point)$coef, keep.rownames = T),
+       data.table(summary(R_pa_ewm_point)$coef, keep.rownames = T),
+       data.table(summary(E_pa_ewm_point)$coef, keep.rownames = T), 
+       data.table(summary(D_pa_clp_point)$coef, keep.rownames = T),
+       data.table(summary(R_pa_clp_point)$coef, keep.rownames = T),
+       data.table(summary(E_pa_clp_point)$coef, keep.rownames = T),
+       data.table(summary(D_ab_ewm_point)$coef, keep.rownames = T),
+       data.table(summary(R_ab_ewm_point)$coef, keep.rownames = T),
+       data.table(summary(E_ab_ewm_point)$coef, keep.rownames = T), 
+       data.table(summary(D_ab_clp_point)$coef, keep.rownames = T),
+       data.table(summary(R_ab_clp_point)$coef, keep.rownames = T),
+       data.table(summary(E_ab_clp_point)$coef, keep.rownames = T)
+  ), fill = TRUE
+)
+
+inv_mods[ , species := rep(c(rep("Mspi", 6),rep("Pcri", 6)), 2) ]
+inv_mods[ , response := rep(c(rep("Div", 2),rep("Rich", 2), rep("Even", 2)), 4) ]
+
+inv_mods[response == "Rich", Estimate_backtrans := exp(Estimate)]
+inv_mods[response == "Even", Estimate_backtrans := plogis(Estimate)]
+
+inv_mods[response == "Rich", confint_lwr := exp(Estimate - 1.96*`Std. Error`)]
+inv_mods[response == "Rich", confint_upr := exp(Estimate + 1.96*`Std. Error`)]
+
+inv_mods[response == "Even", confint_lwr := plogis(Estimate - 1.96*`Std. Error`)]
+inv_mods[response == "Even", confint_upr := plogis(Estimate + 1.96*`Std. Error`)]
+
+inv_mods[response == "Div", confint_lwr := Estimate - 1.96*`Std. Error`]
+inv_mods[response == "Div", confint_upr := Estimate + 1.96*`Std. Error`]
 
 
-#individual comparions with tests:
+# visualizations with tests -----------------------------------------------
+
+#' Predict from models:
+#' 
+#' 
+#' 
+
+# predictions on abund ----------------------------------------------------
+
+
+#new data spanning abund to predict models from
+# EWM
+newdat3<-data.frame(myriophyllum_spicatum = seq(1,3, length.out = nrow(plants_rakeabund_wide[myriophyllum_spicatum > 0 ])),
+                    survey_date = plants_rakeabund_wide[myriophyllum_spicatum > 0 , mean(survey_date)],
+                    dow = plants_rakeabund_wide[myriophyllum_spicatum > 0 , dow])
+# CLP
+newdat4<-data.frame(potamogeton_crispus = seq(1,3, length.out = nrow(plants_rakeabund_wide[potamogeton_crispus > 0 ])),
+                    survey_date = plants_rakeabund_wide[potamogeton_crispus > 0 , mean(survey_date)],
+                    dow = plants_rakeabund_wide[potamogeton_crispus > 0 , dow])
+
+# ENSPie ~ Abund: 
+#EWM
+newdat3$fittedD <- predict(D_ab_ewm_point, newdat3, re.form = NA)
+
+#CLP
+newdat4$fittedD <- predict(D_ab_clp_point, newdat4, re.form = NA)
+
+##Richness~Abund: 
+#EWM
+newdat3$fittedR <- predict(R_ab_ewm_point, newdat3, re.form = NA,type = "response" )
+#CLP
+newdat4$fittedR <- predict(R_ab_clp_point, newdat4, re.form = NA, type = "response")
+
+#Evenness~Abund: 
+#EWM
+newdat3$fittedE <- predict(E_ab_ewm_point, newdat3, re.form = NA)
+#CLP
+newdat4$fittedE <- predict(E_ab_clp_point, newdat4, re.form = NA)
+
+
+
 #ENSpie
-ggplot(plants_rakeabund_wide[], aes(potamogeton_crispus> 0, simpsons_div_nat) )+
-  geom_boxplot()+
-  geom_smooth(method = "lm")+
-  ylab("ENSpie")+
-  ylim(c(0,5.75
-  ))
-summary(lm(simpsons_div~potamogeton_crispus>0, data = plants_rakeabund_wide))
+names(plants_rakeabund_wide) <- names(clean_names(plants_rakeabund_wide))
 
-ggplot(plants_rakeabund_wide, aes(myriophyllum_spicatum>0, simpsons_div_nat) )+
-  geom_boxplot()+
-  geom_smooth(method = "lm")+
-  ylab("ENSpie")
-summary(lm(shannon_div_nat~myriophyllum_spicatum>0, data = plants_rakeabund_wide))
+legend_colors <- c("potamogeton_crispus" = "blue", "myriophyllum_spicatum" = "red")
+point_abund_ENSpie <- ggplot()+
+  stat_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
+              aes(potamogeton_crispus, simpsons_div_nat, color = "potamogeton_crispus", group = dow),
+              method = "lm", geom = 'line', se =F,  alpha = .04)+
+  ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
+  # theme(legend.position = "none")+
+  stat_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
+              aes(myriophyllum_spicatum, simpsons_div_nat,color = "myriophyllum_spicatum", group = dow),
+              method = "lm", geom = 'line', se = F, color = "red", alpha = .04)+
+  geom_line(data = newdat4, 
+            aes(potamogeton_crispus,fittedD), color = "blue", size = 1.5)+
+  geom_line(data = newdat3, 
+            aes(myriophyllum_spicatum,fittedD), color = "red", size = 1.5)+
+  theme_bw()+
+  xlab("Relative Abundance of Invader")+
+  ggtitle("Invaded sample points")+
+  scale_color_manual(values = legend_colors, labels = c("Potamogeton crispus","Myriophyllum spicatum"))+
+  theme_bw()+
+  theme(legend.position = c(0.6, 0.9),legend.title = element_blank(), legend.background = element_blank(), legend.text = element_text(face = "italic"))+
+  guides(colour = guide_legend(override.aes = list(alpha = 1)))
 
 
-#richness?
-ggplot(plants_rakeabund_wide, aes(potamogeton_crispus>0, nat_richness) )+
-  geom_boxplot()+
-  geom_smooth(method = "lm")
-summary(glm(nat_richness~potamogeton_crispus>0, data = plants_rakeabund_wide, family = poisson()))
-
-ggplot(plants_rakeabund_wide, aes(myriophyllum_spicatum>0, nat_richness) )+
-  geom_violin()+
-  geom_smooth(method = "lm")
-summary(glm(nat_richness~myriophyllum_spicatum>0, data = plants_rakeabund_wide, family = poisson()))
+#Richness
+point_abund_richness <- ggplot()+
+  # geom_boxplot(aes(group = potamogeton_crispus))+
+  stat_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
+              aes(potamogeton_crispus, nat_richness, group = dow),
+              method = "lm", geom = 'line', se = F, color = "blue", alpha = .04)+
+  ylab("Richness")+
+  # theme(legend.position = "none")+
+  stat_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
+              aes(myriophyllum_spicatum, nat_richness, group = dow),
+              method = "lm", geom = 'line', se = F, color = "red", alpha = .04)+
+  geom_line(data = newdat3, 
+            aes(myriophyllum_spicatum,fittedR),
+            color = "red", size = 1.5)+
+  geom_line(data = newdat4, 
+            aes(potamogeton_crispus,fittedR),
+            color = "blue", size = 1.5)+
+  theme_bw()+
+  xlab("Relative Abundance of Invader")+
+  scale_color_manual(values = legend_colors, labels = c("Potamogeton crispus","Myriophyllum spicatum"))+
+  theme_bw()+
+  ggtitle("")+
+  theme(legend.position = c(0.6, 0.9), legend.background = element_blank(), legend.text = element_text(face = "italic"))+
+  theme(axis.text.y.left = element_text(angle = 90))
 
 
 #evenness?
-ggplot(plants_rakeabund_wide, aes(potamogeton_crispus>0, simpsons_div_nat/nat_richness) )+
-  geom_violin()+
-  geom_smooth(method = "lm")
-summary(glm(simpsons_div_nat/nat_richness~potamogeton_crispus, data = plants_rakeabund_wide[!simpsons_div_nat == Inf], family = binomial()))
+point_abund_evenness <- ggplot()+
+  # geom_boxplot(aes(group = potamogeton_crispus))+
+  stat_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
+              aes(potamogeton_crispus, nat_evenness, group = dow),
+              method = "lm", geom = 'line', se = F, color = "blue", alpha = .04)+
+  ylab("Evenness")+
+  # theme(legend.position = "none")+
+  stat_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
+              aes(myriophyllum_spicatum, nat_evenness, group = dow),
+              method = "lm", geom = 'line', se = F, color = "red", alpha = .04)+  
+  geom_line(data = newdat3, aes(myriophyllum_spicatum,fittedE), color = "red", size = 1.5)+
+  geom_line(data = newdat4, 
+            aes(potamogeton_crispus,fittedE),
+            color = "blue", size = 1.5)+
+  theme_bw()+
+  xlab("Relative Abundance of Invader")+
+  scale_color_manual(values = legend_colors, labels = c("Potamogeton crispus","Myriophyllum spicatum"))+
+  theme_bw()+
+  theme(legend.position = c(0.6, 0.9), legend.background = element_blank(), legend.text = element_text(face = "italic"))+
+  theme(axis.text.y.left = element_text(angle = 90))+
+  ylim(c(0.7, 1.05))
 
-ggplot(plants_rakeabund_wide, aes(myriophyllum_spicatum>0, simpsons_div_nat/nat_richness) )+
-  geom_violin()+
-  geom_smooth(method = "lm")
-summary(glm(simpsons_div_nat/nat_richness~myriophyllum_spicatum, data = plants_rakeabund_wide[!simpsons_div_nat == Inf], family = binomial(link = 'logit')))
+point_abunds <- ggarrange(point_abund_ENSpie, ggarrange(point_abund_richness, point_abund_evenness,
+                                                        ncol = 1,
+                                                        labels = c("e","f"),
+                                                        label.x = c(0.15,0.15),
+                                                        label.y = c(0.86,0.95)),
+                          labels = c("d",""),
+                          label.x = 0.15,
+                          label.y = 0.91)+  border(color = "black", size = 0.8, linetype = NULL)
+
+# signific. on boxplots ---------------------------------------------------
+
+#' Add significance levels to boxplots
+
+box1p <- box1p+
+  geom_signif(
+    y_position = c(-0.7, -0.7), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("<0.001", "<0.001"), tip_length = 0, size = 1
+  )
+
+box2p <- box2p+
+  geom_signif(
+    y_position = c(-2, -2), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("<0.001", "0.003"), tip_length = 0, size = 1
+  )
+
+box3p <- box3p+
+  geom_signif(
+    y_position = c(0.7, 0.7), xmin = c(0.8, 1.8), xmax = c(1.2, 2.2),
+    annotation = c("<0.001", "0.060"), tip_length = 0, size = 1
+  )+ylim(c(0.7, 1.05))
+
+
+box1bp <- ggarrange(box2p, box3p, ncol = 1,
+                   labels = c("b","c"),
+                   label.x = c(0.15,0.15),
+                   label.y = c(0.85,0.93))
+
+point_boxpsp <- ggarrange(box1p, box1bp,
+                         labels = c("a", ""),
+                         label.x = 0.15,
+                         label.y = 0.92)
+
+# Figure 2: Compile boxplots and abund plots
+
+ggarrange(point_boxpsp,point_abunds, ncol = 1)
+
+#' A few things I don't love: 
+#' 1. I can't see the medians in the boxplots
+#' 2. I can't tell whats happening in the evenness plots
+#' 3.
 
 
 
@@ -1000,26 +1226,8 @@ summary(glm(simpsons_div_nat/nat_richness~myriophyllum_spicatum, data = plants_r
 
 
 
-# viz & test point level p/a (all occ) ------------------------------------------------
 
 
-
-#individual comparions with tests:
-#ENSpie
-# not possible, no evenness metrics with only local p/a data
-
-#richness?
-#clp
-ggplot(plants_occurrence_wide[NO_VEG_FOUND == F], aes(`Potamogeton crispus`, nat_richness) )+
-  geom_boxplot()
-summary(glm(nat_richness~`Potamogeton crispus`, data = plants_occurrence_wide[NO_VEG_FOUND == F], family = poisson()))
-#ewm
-ggplot(plants_occurrence_wide[NO_VEG_FOUND == F], aes(`Myriophyllum spicatum`, nat_richness) )+
-  geom_boxplot(aes(group = `Myriophyllum spicatum`))
-summary(glm(nat_richness~`Myriophyllum spicatum`, data = plants_occurrence_wide[NO_VEG_FOUND == F], family = poisson()))
-
-#evenness?
-#see note for ENSpie
 
 
 # lake level light/ Secchi ------------------------------------------------
