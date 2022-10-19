@@ -85,7 +85,7 @@ easyPredCIbinom <- function(model,newdata,alpha=0.05) {
 # load in data -------------------------------------------------
 
 # this is an observation level dataset (our foundation plant data)
-plants <- fread(file = "data&scripts/data/output/plants_env_data.csv", drop = 1)
+plants <- fread(file = "data&scripts/data/output/plants_env_data.csv")
 
 #here we have aggregated the plants dataset into a typical format with a "wide" config, and a row for each point or rake throw 
 plants_occurrence_wide <- fread(file = "data&scripts/data/output/plants_env_data_wide.csv", drop = 1)
@@ -357,7 +357,7 @@ ggpairs(plants_rakeabund_wide[!is.na(nat_evenness),.(simpsons_div_nat, nat_richn
 #' to the Diversity Richness & Evenness (DRE) of native plant communities.
 
 # viz lake level invader effects ----------------------------------------------
-#' ## Competition
+#' ## Competitive Interactions
 #' 
 #' We're going to take a look at the lake and point scale influence of invaders
 #' on native species. Some things to keep an eye out for in these analyses
@@ -373,7 +373,7 @@ ggpairs(plants_rakeabund_wide[!is.na(nat_evenness),.(simpsons_div_nat, nat_richn
 #' Before we do our analyses, lets visualize the relationships that are of
 #' interest to us. 
 #' 
-#' ### Viz - lake level invader effects
+#' ### Lake Level - Viz
 
 # presence absence lake scale boxplots ------------------------------------
 # grab out just the rows where each invader could be estimated & make a plot table
@@ -451,7 +451,7 @@ INV_ENSpie <- ggplot()+
               aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
               method = "loess", lty = 2, se = F)+
   xlab("Invader Lakewide Prevalence")+
-  ylab("Native Species ENSpie")+
+  ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
   ggtitle("INVADED LAKE SURVEYS")+
   labs(color = NULL) +
   scale_color_manual(values = legend_colors, labels = c("Potamogeton crispus","Myriophyllum spicatum"))+
@@ -524,7 +524,7 @@ ggarrange(boxps,abundps, ncol = 1)
 #' similar relationships to native species (not visually much interesting going
 #' on there).
 #' 
-#' ### Tests - lake level invader effects  
+#' ### Lake Level - Tests
 #' 
 #' Here we'll make three tests (DRE) for each species (EWM/CLP) and data type
 #' (p/a v. abund). 
@@ -621,6 +621,8 @@ inv_mods[response == "Even", confint_upr := plogis(Estimate + 1.96*`Std. Error`)
 inv_mods[response == "Div", confint_lwr := Estimate - 1.96*`Std. Error`]
 inv_mods[response == "Div", confint_upr := Estimate + 1.96*`Std. Error`]
 
+# fwrite(inv_mods, file = "data&scripts/data/output/obs_comp_mods.csv")
+
 #' One crummy thing about using mixed effects models is that they tell me it's 
 #' challenging to make model predictions of confidence intervals that do a good
 #' job of incorporating the fixed and random effects variances (or something 
@@ -630,7 +632,7 @@ inv_mods[response == "Div", confint_upr := Estimate + 1.96*`Std. Error`]
 #' model confidence intervals is given in the first prediction, both via bootMer
 #' and mertools:predictInterval. 
 #' 
-#' ### Viz - with test overlay
+#' ### Lake Level - Results Viz
 
 
 # visualizations with test results ---------------------------------------------------------
@@ -776,14 +778,14 @@ box3 <- box3+
   # Clean up Workspace:
   # rm(abundps, box1, box2, box3, boxplot_data, boxps, CLP_ENSpie, CLP_evenness, CLP_nat_lake_mod, CLP_richness, CLPabund_nat_lake_ENSpie, CLPabund_nat_lake_evenness, CLPabund_nat_lake_richness)
 
-#' ## Discuss: 
+#' ### Lake Level - Discuss: 
 #' 
 #' It's surprising to me that these trends are significant, but I suppose that 
 #' is owed partly to the large sample sizes we've got. In addition, it should be
 #' noted that not all of our model diagnostics were very satisfactory (check out
 #' the binomial glmer for evenness. 
 #' 
-#' ### Viz - point level invader effects
+#' ### Point Level - Viz
 
 
 # viz point level rake abund --------------------------------------------------
@@ -799,7 +801,7 @@ point_abund_ENSpie <- ggplot()+
   geom_smooth(data = plants_rakeabund_wide[potamogeton_crispus> 0],
               aes(potamogeton_crispus, simpsons_div_nat),
               method = "lm", color = "blue", size = 1.5)+
-  ylab("ENSpie")+
+  ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
   # theme(legend.position = "none")+
   stat_smooth(data = plants_rakeabund_wide[myriophyllum_spicatum> 0],
               aes(myriophyllum_spicatum, simpsons_div_nat, group = survey_id),
@@ -901,7 +903,7 @@ box1p <- ggplot(data = point_boxes_dat[metric == "nat_div"], aes(species, value,
   scale_x_discrete(limits= c("inv_pot_cri", "inv_myr_spi"),labels=c("Potamogeton crispus","Myriophyllum spicatum"))+
   scale_fill_discrete(limits= c("FALSE", "TRUE"),labels=c("Invader Absent","Invader Present"))+
   xlab(NULL)+
-  ylab("Native Species ENSpie")+
+  ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
   theme_bw()+
   ggtitle("All sample points")+
   theme(axis.text.x = element_text( face = "italic"), legend.position = c(.35,.9), legend.title = element_blank(), legend.background = element_blank())
@@ -940,7 +942,7 @@ point_boxpsp <- ggarrange(box1p, box1bp,
 ggarrange(point_boxpsp,point_abunds, ncol = 1)
 
 
-#' ### Test - point level invader effects
+#' ### Point Level - Test
 #' 
 #' This is an important spot to pause and talk a bit about the nuance of these
 #' figures (and the tests we'll write to evaluate the relationships). At the 
@@ -1022,41 +1024,48 @@ plot(E_pa_ewm_point)
 # Compile Model Tables - Point --------------------------------------------
 
 inv_mods_point <- rbindlist(
-  list(data.table(summary(D_pa_ewm_point)$coef, keep.rownames = T),
-       data.table(summary(R_pa_ewm_point)$coef, keep.rownames = T),
-       data.table(summary(E_pa_ewm_point)$coef, keep.rownames = T), 
-       data.table(summary(D_pa_clp_point)$coef, keep.rownames = T),
-       data.table(summary(R_pa_clp_point)$coef, keep.rownames = T),
-       data.table(summary(E_pa_clp_point)$coef, keep.rownames = T),
-       data.table(summary(D_ab_ewm_point)$coef, keep.rownames = T),
-       data.table(summary(R_ab_ewm_point)$coef, keep.rownames = T),
-       data.table(summary(E_ab_ewm_point)$coef, keep.rownames = T), 
-       data.table(summary(D_ab_clp_point)$coef, keep.rownames = T),
-       data.table(summary(R_ab_clp_point)$coef, keep.rownames = T),
-       data.table(summary(E_ab_clp_point)$coef, keep.rownames = T)
+  list(data.table(summary(D_pa_ewm_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(R_pa_ewm_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(E_pa_ewm_point)$coef[c(1,4),], keep.rownames = T), 
+       data.table(summary(D_pa_clp_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(R_pa_clp_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(E_pa_clp_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(D_ab_ewm_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(R_ab_ewm_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(E_ab_ewm_point)$coef[c(1,4),], keep.rownames = T), 
+       data.table(summary(D_ab_clp_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(R_ab_clp_point)$coef[c(1,4),], keep.rownames = T),
+       data.table(summary(E_ab_clp_point)$coef[c(1,4),], keep.rownames = T)
   ), fill = TRUE
 )
 
-inv_mods[ , species := rep(c(rep("Mspi", 6),rep("Pcri", 6)), 2) ]
-inv_mods[ , response := rep(c(rep("Div", 2),rep("Rich", 2), rep("Even", 2)), 4) ]
+inv_mods_point[ , species := rep(c(rep("Mspi", 6),rep("Pcri", 6)), 2) ]
+inv_mods_point[ , response := rep(c(rep("Div", 2),rep("Rich", 2), rep("Even", 2)), 4) ]
 
-inv_mods[response == "Rich", Estimate_backtrans := exp(Estimate)]
-inv_mods[response == "Even", Estimate_backtrans := plogis(Estimate)]
+inv_mods_point[response == "Rich", Estimate_backtrans := exp(Estimate)]
+inv_mods_point[response == "Even", Estimate_backtrans := plogis(Estimate)]
 
-inv_mods[response == "Rich", confint_lwr := exp(Estimate - 1.96*`Std. Error`)]
-inv_mods[response == "Rich", confint_upr := exp(Estimate + 1.96*`Std. Error`)]
+inv_mods_point[response == "Rich", confint_lwr := exp(Estimate - 1.96*`Std. Error`)]
+inv_mods_point[response == "Rich", confint_upr := exp(Estimate + 1.96*`Std. Error`)]
 
-inv_mods[response == "Even", confint_lwr := plogis(Estimate - 1.96*`Std. Error`)]
-inv_mods[response == "Even", confint_upr := plogis(Estimate + 1.96*`Std. Error`)]
+inv_mods_point[response == "Even", confint_lwr := plogis(Estimate - 1.96*`Std. Error`)]
+inv_mods_point[response == "Even", confint_upr := plogis(Estimate + 1.96*`Std. Error`)]
 
-inv_mods[response == "Div", confint_lwr := Estimate - 1.96*`Std. Error`]
-inv_mods[response == "Div", confint_upr := Estimate + 1.96*`Std. Error`]
+inv_mods_point[response == "Div", confint_lwr := Estimate - 1.96*`Std. Error`]
+inv_mods_point[response == "Div", confint_upr := Estimate + 1.96*`Std. Error`]
+
+rbindlist(list(inv_mods,inv_mods_point))
+
+
+# fwrite(rbindlist(list(inv_mods,inv_mods_point)), file = "data&scripts/data/output/obs_comp_mods.csv")
+
 
 
 # visualizations with tests -----------------------------------------------
 
 #' Predict from models:
-#' ### Viz with tests - point level invader eff
+
+#' ### Point Level - Results Viz
 #' 
 #' 
 
@@ -1215,12 +1224,14 @@ point_boxpsp <- ggarrange(box1p, box1bp,
 
 ggarrange(point_boxpsp,point_abunds, ncol = 1)
 
+#' #' ### Point Level - Discuss
+#' 
 #' A few things I don't love: 
 #' 1. I can't see the medians in the boxplots
 #' 2. I can't tell whats happening in the evenness plots
 #' 3. There's got to be a #3, I just can't think of one right now.
 #' 
-#' ### Discuss: Invader presence/absence and  abund
+#' ### Methodological Conclusions: p/s vs. abund
 #' 
 #' Up to this point we have treated these (p/a and abund) as two models. A
 #' glance at the plots shows you that p/a at the lake scale is problematic
@@ -1243,9 +1254,9 @@ ggarrange(point_boxpsp,point_abunds, ncol = 1)
 #' The next thing we want to investigate is how light, is driving some of the 
 #' native community and invader relationship. 
 #' 
-#' ## Environmental conditions
+#' ## Environmental Conditions (Light)
 #' 
-#' ### Viz - light effects lake level
+#' ### Lake Level - Viz
 
 
 #whats the relationship to clarity look like in uninvaded lakes
@@ -1260,13 +1271,13 @@ ggpairs(summer_surveys[invaded == T , .(Secchi_m, potcri_early_vegdfoc, myrspi_s
 
 nat_ENSpie <- ggplot(summer_surveys[!is.na(Secchi_m) & Secchi_m >0.2 , ],
                      aes(Secchi_m,simpsons_div_nat, color = invaded))+
-  geom_point( alpha = 0.4)+
-  geom_smooth(method = "lm")+
-  xlab("Secchi")+
-  ylab("ENSpie")+
+  geom_point( alpha = 0.2)+
+  geom_smooth(method = "lm", se = F)+
+  xlab("Secchi (m)")+
+  ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
   scale_color_manual(values = c("black", "red"), labels = c("Uninvaded","Invaded"))+
   theme_bw()+
-  theme(legend.position = c(0.6, 0.8), legend.background = element_blank(), legend.text = element_text(face = "italic"), legend.title = element_blank())+
+  theme(legend.position = c(0.2, 0.8), legend.background = element_blank(), legend.text = element_text(face = "italic"), legend.title = element_blank())+
   scale_x_log10()
 
 nat_rich <- ggplot(summer_surveys[!is.na(Secchi_m) , ],
@@ -1285,7 +1296,7 @@ nat_even <- ggplot(summer_surveys[!is.na(Secchi_m) , ],
                      aes(Secchi_m,nat_evenness, color = invaded))+
   geom_point( alpha = 0.4)+
   geom_smooth(method = "lm")+
-  xlab("Secchi")+
+  xlab("Secchi (m)")+
   ylab("Evenness")+
   scale_color_manual(values = c("black", "red"), labels = c("Uninvaded","Invaded"))+
   theme_bw()+
@@ -1293,16 +1304,16 @@ nat_even <- ggplot(summer_surveys[!is.na(Secchi_m) , ],
   scale_x_log10()
 
 
-clp_secchi <- ggplot(summer_surveys[potcri_early_vegdfoc >0], aes(Secchi_m, potcri_early_vegdfoc))+
+clp_secchi <- ggplot(summer_surveys[!is.na(potcri_early_vegdfoc), , ], aes(Secchi_m, potcri_early_vegdfoc))+
   geom_point( alpha = 0.4)+
-  geom_smooth(method = "lm")+
+  geom_smooth(method = "loess")+
   ylab("CLP Abundance")+
   theme_bw()+
   scale_x_log10()
 
 ewm_secchi <- ggplot(summer_surveys[myrspi_summer_vegdfoc>0], aes(Secchi_m, myrspi_summer_vegdfoc))+
   geom_point( alpha = 0.4)+
-  geom_smooth( method = "lm")+
+  geom_smooth( method = "loess")+
   ylab("EWM Abundance")+
   theme_bw()+
   scale_x_log10()
@@ -1310,7 +1321,7 @@ ewm_secchi <- ggplot(summer_surveys[myrspi_summer_vegdfoc>0], aes(Secchi_m, myrs
 ggarrange(nat_ENSpie, clp_secchi, ewm_secchi, ncol = 1)
 
 #' 
-#' ### Test - light effects + invaders
+#' ### Lake Level - Test
 #' 
 #' 
 #now we want to ask if the relationship between the invaders abund and native species sticks when we consider WQ:
@@ -1351,6 +1362,14 @@ summary(m.evn.ewm.wc)# here everything becomes non significant
 # plot_model(m.nat.ewm.wc, type = "pred", terms = "myrspi_summer_vegdfoc")
 # plot_model(m.nat.ewm, type = "pred", terms = "myrspi_summer_vegdfoc")
 
+#do the invaders exhibit negative relationships to secchi?
+clp_secchi_test <- glmer(potcri_early_vegdfoc ~ log(Secchi_m) + (1|DOW) + (1| year), data = summer_surveys[!is.na(potcri_early_vegdfoc) ], family = binomial(), weights = SPRING_n_points_vegetated)
+summary(clp_secchi_test)
+plot(clp_secchi_test)
+
+ewm_secchi_test <- glmer(myrspi_summer_vegdfoc ~ log(Secchi_m) + (1|DOW) + (1| year), data = summer_surveys[ myrspi_summer_vegdfoc>0], family = binomial(), weights = n_points_vegetated)
+summary(ewm_secchi_test)
+plot(ewm_secchi_test)
 
 # we could also ask if the decline in the positive secchi effect is significant:
 ggplot(summer_surveys[!is.na(Secchi_m) & Secchi_m >0.05 & simpsons_div_nat > 0 , ],
@@ -1367,12 +1386,13 @@ secchi_nat_inv <- lmer(log(simpsons_div_nat)~invaded*log(Secchi_m) + (1|DOW) + (
                        data = summer_surveys[!is.na(Secchi_m) & Secchi_m >0.05 & simpsons_div_nat > 0 , ])
 summary(secchi_nat_inv)
 
-#' 
-#' ### Viz - light effects point level
-#' 
+#' ### Lake Level - Discuss
 #' 
 #' 
 #' 
+#' ### Point Level - Viz
+#' 
+
 
 # point level light avail -------------------------------------------------
 
@@ -1395,11 +1415,26 @@ ggplot(plants_rakeabund_wide[!is.na(proplight)], aes(proplight, potamogeton_cris
   xlab("Proplight")+
   ylab("CLP")
 
+#' We'll use a VCA to examine where light var is coming from in our data: 
+#' This is a nice solution to Dan's question about how much in-lake variation in
+#' depth can even contribute to the overall variance in proplight. 
+#' 
+#' Currently not sucessful in implememnting this because of memory allocation.
+
+# 
+# names(plants)
+# 
+# varPlot(form = proplight~watershed/dow/survey_id/point_id,
+#        Data=plants_rakeabund_wide)
+# 
+# fitVCA(form=proplight~watershed/DOW/SURVEY_ID/POINT_ID,
+#        Data=plants[!is.na(proplight) & !is.na(watershed)])
+# 
+
 #'
-#' ### Test - point level - light effects + invaders 
+#' ### Point Level - Test
 #'
-#'
-#' we need to ask if the negative point scale rel goes away if we account for
+#' Does negative point scale rel goes away if we account for
 #' light & if that effect varies by species:
 
 
@@ -1447,13 +1482,13 @@ summary(E_ewm_point.wc)
 # species pools -----------------------------------------------------------
 
 
-#' ## Species Pools as Diversity Drivers
+#' ## Species Pools
 #'
 #' We want to use the pool above each scale as a predictor of the pool at that scale:
 #' For obs data: We want lakediv ~ watersheddiv; then pointdiv~lakediv + watershed div
 #' 
 #' 
-#' ### Viz & Test - both scales
+#' ### Both scales - Viz & Test 
 
 ggplot( data = plants_rakeabund_wide, aes( surveyrichness, simpsons_div_nat))+
   geom_point()+
@@ -1474,7 +1509,7 @@ point_evn_pools <- lm(nat_evenness ~ surveyrichness + watershedrichness, data = 
 summary(point_evn_pools)
 
 # watershed richness as the predictor of a lake: 
-ggplot( data = surveys,
+ggplot( data = summer_surveys,
         aes(watershedrichness, simpsons_div_nat))+
   geom_point()+
   geom_smooth(method = "lm")+
@@ -1482,29 +1517,30 @@ ggplot( data = surveys,
   xlab("HUC-8 Watershed Richness")+
   theme_bw()
 
-survey_div_watershed_pool <- lm(simpsons_div_nat~watershedrichness, data = surveys)
+survey_div_watershed_pool <- lm(simpsons_div_nat~watershedrichness, data = summer_surveys)
 summary(survey_div_watershed_pool)
-survey_rich_watershed_pool <- glm(nat_richness~watershedrichness, data = surveys, family = poisson())
+survey_rich_watershed_pool <- glm(nat_richness~watershedrichness, data = summer_surveys, family = poisson())
 summary(survey_rich_watershed_pool)
-survey_even_watershed_pool <- lm(nat_evenness~watershedrichness, data = surveys)
+survey_even_watershed_pool <- lm(nat_evenness~watershedrichness, data = summer_surveys)
 summary(survey_even_watershed_pool)
 
 #redo all species pool plots with ENSpie:
 point_pools <- ggplot( data = plants_rakeabund_wide,
                        aes(surveyrichness, simpsons_div_nat))+
-  geom_point()+
-  geom_smooth(method = "lm")+
-  ylab("Point-scale ENSpie")+
-  xlab("Lake-scale Richness")+
+  geom_point(shape = 1)+
+  # geom_smooth(method = "lm")+
+  ylab(bquote('Point-scale native diversity ('~ENS[PIE]~')'))+
+  xlab("Lake-scale richness")+
   theme_bw()
 
-lake_pools <- ggplot( data = surveys,
+lake_pools <- ggplot( data = summer_surveys,
                       aes(watershedrichness, simpsons_div_nat))+
-  geom_point()+
-  geom_smooth(method = "lm")+
-  ylab("Lake-scale ENSpie")+
-  xlab("Watershed-scale Richness")+
+  geom_point(shape = 1)+
+  # geom_smooth(method = "lm")+
+  ylab(bquote('Lake-scale native diversity ('~ENS[PIE]~')'))+
+  xlab("Watershed-scale richness")+
   theme_bw()
+
 ggarrange(
   point_pools,
   lake_pools
@@ -1515,64 +1551,67 @@ ggarrange(
 #'
 #'
 #'
-#' ## Synthesize all predictors: Diversity ~ InvaderAbund + Light + Invader*Light + SpeciesPool 
+#' ## Integrating Component Drivers:
+#' 
+#'  Diversity ~ InvaderAbund + Light + Invader*Light + SpeciesPool 
+#'  
 # one bigass test: --------------------------------------------------------
 
 
 #Lake level:
 #CLP-D
-D_clp_full_lake <- lmer(simpsons_div_nat ~ potcri_early_vegdfoc*Secchi_m + watershedsimpson + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+D_clp_full_lake <- lmer(simpsons_div_nat ~ potcri_early_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
 summary(D_clp_full_lake)
 
 #CLP-R
-R_clp_full_lake <- lmer(nat_richness ~ potcri_early_vegdfoc*Secchi_m + watershedsimpson + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+R_clp_full_lake <- lmer(nat_richness ~ potcri_early_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
 summary(R_clp_full_lake)
 
 #CLP-E
-E_clp_full_lake <- lmer(nat_evenness ~ potcri_early_vegdfoc*Secchi_m + watershedsimpson + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+E_clp_full_lake <- lmer(nat_evenness ~ potcri_early_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
 summary(E_clp_full_lake)
 
 #EWM-D
-D_ewm_full_lake <- lmer(simpsons_div_nat ~ myrspi_summer_vegdfoc*Secchi_m + watershedsimpson + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
+D_ewm_full_lake <- lmer(simpsons_div_nat ~ myrspi_summer_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
 summary(D_ewm_full_lake)
 
 #EWM-R
-R_ewm_full_lake <- lmer(simpsons_div_nat ~ myrspi_summer_vegdfoc*Secchi_m + watershedsimpson + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
+R_ewm_full_lake <- lmer(nat_richness ~ myrspi_summer_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
 summary(R_ewm_full_lake)
 
 #EWM-E
-E_ewm_full_lake <- lmer(simpsons_div_nat ~ myrspi_summer_vegdfoc*Secchi_m + watershedsimpson + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
-summary(Eewm_full_lake)
+E_ewm_full_lake <- lmer(nat_evenness ~ myrspi_summer_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
+summary(E_ewm_full_lake)
 
 
 
 #point level
 #CLP_Div
-D_clp_full <- lmer(simpsons_div_nat ~ proplight*potamogeton_crispus + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
+D_clp_full <- lmer(simpsons_div_nat ~ potamogeton_crispus*proplight + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
 summary(D_clp_full)
 
 #CLP_Ric
-R_clp_full <- lmer(nat_richness ~ proplight*potamogeton_crispus + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
+R_clp_full <- lmer(nat_richness ~ potamogeton_crispus*proplight + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
 summary(R_clp_full)
 
 #CLP_Evn
-E_clp_full <- lmer(nat_evenness ~ proplight*potamogeton_crispus + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
+E_clp_full <- lmer(nat_evenness ~ potamogeton_crispus*proplight + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
 summary(E_clp_full)
 
 #EWM_Div
-D_ewm_full <- lmer(simpsons_div_nat ~ proplight*myriophyllum_spicatum + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
+D_ewm_full <- lmer(simpsons_div_nat ~ myriophyllum_spicatum*proplight + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
 summary(D_ewm_full)
 
 #EWM_Ric
-R_ewm_full <- lmer(nat_richness ~ proplight*myriophyllum_spicatum + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
+R_ewm_full <- lmer(nat_richness ~ myriophyllum_spicatum*proplight + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
 summary(R_ewm_full)
 
 #EWM_Evn
-E_ewm_full <- lmer(nat_evenness ~ proplight*myriophyllum_spicatum + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
+E_ewm_full <- lmer(nat_evenness ~ myriophyllum_spicatum*proplight + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide)
 summary(E_ewm_full)
 
 
-#' ## Interpretation:
+#' ### Interpretation:
 #' 
 #' At the lake scale, the addition of species pool into the model results in a
 #' model with only watershed as a significant predictor. This is not surprising
@@ -1591,8 +1630,69 @@ summary(E_ewm_full)
 #' 
 #' 
 #' 
-#' 
-#' 
+
+# Compile Model Tables - Point --------------------------------------------
+
+inv_mods_full <- rbindlist(
+  list(data.table(summary(D_clp_full_lake)$coef, keep.rownames = T),
+       data.table(summary(R_clp_full_lake)$coef, keep.rownames = T),
+       data.table(summary(E_clp_full_lake)$coef, keep.rownames = T), 
+       data.table(summary(D_ewm_full_lake)$coef, keep.rownames = T),
+       data.table(summary(R_ewm_full_lake)$coef, keep.rownames = T),
+       data.table(summary(E_ewm_full_lake)$coef, keep.rownames = T),
+       data.table(summary(D_clp_full)$coef[c(1:3,6:8),], keep.rownames = T),
+       data.table(summary(R_clp_full)$coef[c(1:3,6:8),], keep.rownames = T),
+       data.table(summary(E_clp_full)$coef[c(1:3,6:8),], keep.rownames = T), 
+       data.table(summary(D_ewm_full)$coef[c(1:3,6:8),], keep.rownames = T),
+       data.table(summary(R_ewm_full)$coef[c(1:3,6:8),], keep.rownames = T),
+       data.table(summary(E_ewm_full)$coef[c(1:3,6:8),], keep.rownames = T)
+  ), fill = TRUE
+)
+
+inv_mods_full[ , species := c(rep("Pcri", 15), rep("Mspi", 15), rep("Pcri", 18), rep("Mspi", 18)) ]
+inv_mods_full[ , response := c(rep(c(rep("Div", 5),rep("Rich", 5), rep("Even", 5)), 2),
+                               rep(c(rep("Div", 6),rep("Rich", 6), rep("Even", 6)), 2))]
+
+inv_mods_full[, confint_lwr := Estimate - 1.96*`Std. Error`]
+inv_mods_full[, confint_upr := Estimate + 1.96*`Std. Error`]
+
+
+
+# fwrite(inv_mods_full, file = "data&scripts/data/output/integrated_mods.csv")
+
+
+
+
+
+
+
+# invaders and light as filters of the pool -------------------------------
+
+ggplot( data = plants_rakeabund_wide, aes( surveyrichness, nat_richness/surveyrichness))+
+  geom_point()+
+  geom_smooth(method = "lm")
+#examples
+# 
+# #Lake level:
+# #CLP-D
+# D_clp_full_lake <- lmer(nat_richness/watershedrichness ~ potcri_early_vegdfoc*Secchi_m  + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+# summary(D_clp_full_lake)
+# 
+# 
+# #point level
+# #CLP_Div
+# D_clp_full <- glmer(nat_richness/surveyrichness ~ proplight*potamogeton_crispus + poly(yday(survey_date), 2) + surveyrichness + watershedrichness +  (1 | dow), data = plants_rakeabund_wide, family = binomial)
+# summary(D_clp_full)
+# 
+# 
+
+
+
+
+
+
+
+
 #' 
 #' 
 #' 
