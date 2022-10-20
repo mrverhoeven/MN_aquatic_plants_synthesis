@@ -22,7 +22,6 @@
 # # Load Libraries
 library(data.table)
 update_dev_pkg()# remotes::install_github("Rdatatable/data.table")
-# library(ggplot2)
 library(stringr)
 # library(sf)
 # library(vegan)
@@ -87,7 +86,7 @@ plants_occurrence_wide <- fread(file = "data&scripts/data/output/plants_env_data
 plants_rakeabund_wide <- fread(file = "data&scripts/data/output/plants_abund_env_data_wide.csv")
 surveys <- fread(file = "data&scripts/data/output/surveys_aqplants.csv")
 
-load("synthesis_script_datasets.Rdata")
+load("data&scripts/data/output/synthesis_script_datasets.Rdata")
 
 #management data
 # source(file = "data&scripts/c1_management_outcomes.R") # will load and clean management data and leave in WS a mgmtdata file
@@ -124,16 +123,16 @@ c <- fread(file = "data&scripts/data/input/Lakes_RoadDensity.csv")
 #' ## Space for time?
 #' 
 #' We've got a pile of data, but its a messy pile. We've got lots of repeat
-#' sampling, but it's not consistent and there are lots of holes. The way we
-#' treated this previously was to run models with lake ID as a random effect. We
-#' can try that again here, or we might consider other options.
+#' sampling, but it's not consistent intervals and there are lots of holes. The
+#' way we treated this previously was to run models with lake ID as a random 
+#' effect. We can try that again here, or we might consider other options.
 #' 
 #' ## Pre or post treatment for each survey
 #' 
 #' Because we have (at best) a fuzzy idea of the dates of treatments, I have
 #' manually reviewed each survey with a treatment in that year (~350) and based
 #' on all the reported mgmt dates I designated each survey as pre- or post-
-#' treatment.
+#' treatment. This seems like a very shaky conclusion/method of deducing this. 
 #' 
 #' ## "Managed"
 #' 
@@ -152,7 +151,7 @@ c <- fread(file = "data&scripts/data/input/Lakes_RoadDensity.csv")
 #' We've got a tiered set of metrics that move from least precise about control
 #' (this lake-year was managed for AN invader), to most precise (this lake-year
 #' was managed for this invader on this date on X acres--at this point I have 
-#' not included method, but could if we dream up a clean way to do that)
+#' not included method, but could if we dream up a clean way to do that.)
 #' 
 #' ## Effects of Management
 #' 
@@ -168,7 +167,8 @@ c <- fread(file = "data&scripts/data/input/Lakes_RoadDensity.csv")
 #'  sum( 1/3 + 1/5)
 #'  
 #'  then I carry this same concept through to acreage, except there we assign
-#'  the numerator as acres in management year.
+#'  the numerator as acres in management year. So 50 acres this year and 50 
+#'  acres last year = 50/1+50/2
 
 #' # Data Prep:
 
