@@ -1349,7 +1349,7 @@ summary(EWMabund_nat_lake_ENSpie)
 summary(EWMabund_nat_lake_richness)
 summary(EWMabund_nat_lake_evenness)
 
-m.div.ewm.wc <- lmer(simpsons_div_nat ~ myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 ])
+m.div.ewm.wc <- lmer(simpsons_div_nat ~ myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[])
 
 m.ric.ewm.wc <- glmer(nat_richness ~ myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 ], family = poisson())
 
@@ -1386,9 +1386,50 @@ secchi_nat_inv <- lmer(log(simpsons_div_nat)~invaded*log(Secchi_m) + (1|DOW) + (
                        data = summer_surveys[!is.na(Secchi_m) & Secchi_m >0.05 & simpsons_div_nat > 0 , ])
 summary(secchi_nat_inv)
 
+
+
 #' ### Lake Level - Discuss
 #' 
+#' It is striking that the relationship to Secchi is decreases with invadedness
+#' yet we don't see significant effects of each invader nor their interactions 
+#' when we model these relationships independently. 
 #' 
+#' This idea caught my attention, so I started doing some digging and found the
+#' following out: The presence of each invader significantly increases diversity
+#' as does Secchi. The Secchi relationship is dampened by invader presence, but 
+#' not by either invader's increasing abundance. And again, each invaders 
+#' independent abundance effect is also nullified.  
+#' 
+#' How do we interpret this?
+#' 
+#' 
+
+#EWM Abund and Pres Mod
+m.div.ewm.wc.b <- lmer(simpsons_div_nat~Secchi_m*(myrspi_summer_vegdfoc>0) + Secchi_m*myrspi_summer_vegdfoc + (1|DOW) + (1| year) , 
+                       data = summer_surveys[ , ])
+
+m.ric.ewm.wc.b <- glmer(nat_richness ~ Secchi_m*(myrspi_summer_vegdfoc>0) + myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ], family = poisson())
+
+m.evn.ewm.wc.b <- lmer(nat_evenness ~ Secchi_m*(myrspi_summer_vegdfoc>0) + myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ])
+
+summary(m.div.ewm.wc.b)
+summary(m.ric.ewm.wc.b)
+summary(m.evn.ewm.wc.b)
+
+
+#CLP Abund and Pres Mod
+m.div.clp.wc.b <- lmer(simpsons_div_nat ~ Secchi_m*(potcri_early_vegdfoc>0) + potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[] )
+
+m.ric.clp.wc.b <- glmer(nat_richness ~ Secchi_m*(potcri_early_vegdfoc>0) + potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ], family = poisson())
+
+m.evn.clp.wc.b <- lmer(nat_evenness ~ Secchi_m*(potcri_early_vegdfoc>0) + potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ] )
+
+summary(m.div.clp.wc.b)
+summary(m.ric.clp.wc.b)
+summary(m.evn.clp.wc.b)
+###########
+
+
 #' 
 #' ### Point Level - Viz
 #' 
