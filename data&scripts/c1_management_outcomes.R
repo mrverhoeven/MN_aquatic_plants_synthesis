@@ -1136,7 +1136,7 @@ s3_mgmt_wdates[ , .N , is.na(date1) ]
 
 
 
-# keep species psecific acreages ------------------------------------------
+# keep species specific acreages ------------------------------------------
 
 s4_grants  <- simp_grants[   ,.(dow, lakename, year, treatmentdate, species, controlacres)]
 
@@ -1242,11 +1242,7 @@ rm(s1_grants, s1_IAPM, s1_mgmtdat, s1_survey,
    surveys2, mgmtdat, grantsdata_l, permits_IAPM)
 
 
-
-# bring in mgmt data ------------------------------------------------------
-
-
-# simplest ----------------------------------------------------------------
+# build management index ----------------------------------------------------------------
 
 #' we've got 4 versions of the management data:
 #' 
@@ -1355,8 +1351,8 @@ names(s1_trtmatrix_l)[names(s1_trtmatrix_l)== "subbasin"] <- "SUBBASIN"
 names(s1_trtmatrix_l)[names(s1_trtmatrix_l)== "dow"] <- "DOW"
 surveys[SUBBASIN == "", SUBBASIN := NA]
 
-setkey(s1_trtmatrix_l, DOW, SUBBASIN, year )
-setkey(surveys, DOW, SUBBASIN, year)
+setkey(s1_trtmatrix_l, p_dow, SUBBASIN, year )
+setkey(surveys, p_dow, SUBBASIN, year)
 
 surveys_s1mgmt <- s1_trtmatrix_l[surveys[!is.na(DOW)] , , ] #drop where DOW == NA
 
@@ -1523,8 +1519,8 @@ names(s2_trtmatrix_ewm_l)[names(s2_trtmatrix_ewm_l)== "dow"] <- "DOW"
 names(s2_trtmatrix_ewm_l)[names(s2_trtmatrix_ewm_l) %in% c("ntrtdates", "m")] <- 
   paste("ewm", names(s2_trtmatrix_ewm_l)[names(s2_trtmatrix_ewm_l) %in% c("ntrtdates", "m")], sep = "_")
 
-setkey(s2_trtmatrix_ewm_l, DOW, SUBBASIN, year )
-setkey(surveys_s1mgmt, DOW, SUBBASIN, year)
+setkey(s2_trtmatrix_ewm_l, p_dow, SUBBASIN, year )
+setkey(surveys_s1mgmt, p_dow, SUBBASIN, year)
 
 surveys_s2mgmt <- s2_trtmatrix_ewm_l[surveys_s1mgmt , , ]
 
@@ -1612,8 +1608,8 @@ names(s2_trtmatrix_clp_l)[names(s2_trtmatrix_clp_l)== "dow"] <- "DOW"
 names(s2_trtmatrix_clp_l)[names(s2_trtmatrix_clp_l) %in% c("ntrtdates", "m")] <- 
   paste("clp", names(s2_trtmatrix_clp_l)[names(s2_trtmatrix_clp_l) %in% c("ntrtdates", "m")], sep = "_")
 
-setkey(s2_trtmatrix_clp_l, DOW, SUBBASIN, year )
-setkey(surveys_s2mgmt, DOW, SUBBASIN, year)
+setkey(s2_trtmatrix_clp_l, p_dow, SUBBASIN, year )
+setkey(surveys_s2mgmt, p_dow, SUBBASIN, year)
 
 surveys_s2mgmt <- s2_trtmatrix_clp_l[surveys_s2mgmt , , ]
 
@@ -1625,9 +1621,9 @@ surveys_s2mgmt[clp_ntrtdates>0 , .N , year]
 # treatment visualizations 2.0 -------------------------------------------------------
 
 ggplot(surveys_s2mgmt, aes(ewm_m, Myriophyllum_spicatum/n_points_vegetated ) ,)+
-  geom_point()+ geom_smooth()
+  geom_point()+ geom_smooth(method = "lm")
 ggplot(surveys_s2mgmt, aes(clp_m, Potamogeton_crispus/n_points_vegetated ) ,)+
-  geom_point()+ geom_smooth()
+  geom_point()+ geom_smooth(method = "lm")
 
 
 # and we can ask if there's a within year effect visible:
@@ -1775,8 +1771,8 @@ names(s4_trtmatrix_ewm_l)[names(s4_trtmatrix_ewm_l)== "dow"] <- "DOW"
 names(s4_trtmatrix_ewm_l)[names(s4_trtmatrix_ewm_l) %in% c("controlacres", "acres_m")] <- 
   paste("ewm", names(s4_trtmatrix_ewm_l)[names(s4_trtmatrix_ewm_l) %in% c("controlacres", "acres_m")], sep = "_")
 
-setkey(s4_trtmatrix_ewm_l, DOW, SUBBASIN, year )
-setkey(surveys_s2mgmt, DOW, SUBBASIN, year)
+setkey(s4_trtmatrix_ewm_l, p_dow, SUBBASIN, year )
+setkey(surveys_s2mgmt, p_dow, SUBBASIN, year)
 
 surveys_s2mgmt[s4_trtmatrix_ewm_l , ':=' (ewm_controlacres = ewm_controlacres, ewm_acres_m = ewm_acres_m) , ]
 
@@ -1861,8 +1857,8 @@ names(s4_trtmatrix_clp_l)[names(s4_trtmatrix_clp_l)== "dow"] <- "DOW"
 names(s4_trtmatrix_clp_l)[names(s4_trtmatrix_clp_l) %in% c("controlacres", "acres_m")] <- 
   paste("clp", names(s4_trtmatrix_clp_l)[names(s4_trtmatrix_clp_l) %in% c("controlacres", "acres_m")], sep = "_")
 
-setkey(s4_trtmatrix_clp_l, DOW, SUBBASIN, year )
-setkey(surveys_s2mgmt, DOW, SUBBASIN, year)
+setkey(s4_trtmatrix_clp_l, p_dow, SUBBASIN, year )
+setkey(surveys_s2mgmt, p_dow, SUBBASIN, year)
 
 surveys_s2mgmt[s4_trtmatrix_clp_l , ':=' (clp_controlacres = clp_controlacres, clp_acres_m = clp_acres_m) , ]
 
@@ -1974,12 +1970,18 @@ names(s1_mgmt_wdates)[names(s1_mgmt_wdates)== "subbasin"] <- "SUBBASIN"
 names(s1_mgmt_wdates)[names(s1_mgmt_wdates)== "dow"] <- "DOW"
 
 s1_mgmt_wdates[ ,year := as.integer(year) , ]
-setkey(s1_mgmt_wdates, DOW, SUBBASIN, year )
+
+setkey(s1_mgmt_wdates, p_dow, SUBBASIN, year )
 
 surveys_s2mgmt <- s1_mgmt_wdates[surveys_s2mgmt , , ]
 
 sum(duplicated(surveys_s2mgmt[ ,SURVEY_ID , ]))
 
+
+
+
+
+###NOTE MAJOR CHANGES TO DOW JOINS (NOW USING PARENT DOW AND SUBBASIN NAME) SINCE LAST EXPORT AND CLEANING
 # now we will export, drop duplicated surveys, and use eyes & brain to assign each survey as pre- or post-
 # fwrite(surveys_s2mgmt, file = "data&scripts/data/output/survs_mgmt_datemess.csv")
 
