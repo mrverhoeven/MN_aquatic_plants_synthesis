@@ -463,6 +463,7 @@ summary(lm(data = clp_set[surveytiming == "early" ], clp_vfoc ~ managed_last_y) 
 summary(lm(data = clp_set[surveytiming == "early" ], clp_vfoc ~ managed_last_y + clp_m_priort) )
 summary(lm(data = clp_set[surveytiming == "peak" ], clp_vfoc ~ clp_managed + managed_last_y + clp_m_priort ))
 
+#natives response
 
 
 
@@ -490,6 +491,12 @@ summary(lm(data = ewm_set[Myriophyllum_spicatum>0], ewm_vfoc ~ managed_last_y) )
 summary(lm(data = ewm_set[Myriophyllum_spicatum>0], ewm_vfoc ~ managed_last_y + ewm_m_priort) )
 summary(lm(data = ewm_set[Myriophyllum_spicatum>0 & ewm_pretrt_mod==0], ewm_vfoc ~ ewm_managed + managed_last_y + ewm_m_priort ))
 
+# native response - plain jane
+summary(lm(data = ewm_set[Myriophyllum_spicatum>0& ewm_pretrt_mod == 1], simpsons_div_nat ~ managed_last_y) )
+summary(lm(data = ewm_set[Myriophyllum_spicatum>0& ewm_pretrt_mod == 1], simpsons_div_nat ~ managed_last_y + ewm_m_priort) )
+summary(lm(data = ewm_set[Myriophyllum_spicatum>0 & ewm_pretrt_mod == 0], simpsons_div_nat ~ ewm_managed + managed_last_y + ewm_m_priort ))
+
+summary(lm(data = ewm_set[Myriophyllum_spicatum>0& ewm_pretrt_mod == 1], simpsons_div_nat ~ ewm_vfoc) )
 
 
 # trt eff w/in yr BACI - CLP ----------------------------------------------
@@ -513,30 +520,55 @@ ggplot(clp_set_baci, aes( delta_clp, color = as.factor(clp_managed) ))+
 ggplot(clp_set_baci[surveytiming == "peak"], aes( delta_clp, as.factor(clp_managed) ))+
   geom_boxplot()
 
+summary(lm(delta_clp~clp_managed, data=clp_set_baci[surveytiming == "peak"]))
+summary(lm(delta_clp~clp_managed + managed_last_y, data=clp_set_baci[surveytiming == "peak"]))
+summary(lm(delta_clp~clp_managed + managed_last_y + clp_m_priort, data=clp_set_baci[surveytiming == "peak"]))
 summary(lm(delta_clp~clp_managed + clp_m_priort, data=clp_set_baci[surveytiming == "peak"]))
-
-ggplot(clp_set_baci[surveytiming == "early"], aes( clp_vfoc, clp_m_priort ))+
-  geom_point()
-
-summary(lm(clp_vfoc~ clp_m_priort, data=clp_set_baci[surveytiming == "early"]))
-
-
 
 # trt eff BACI across yrs -------------------------------------------------
 
 
 clp_set[surveytiming == "peak", .N]
-
 clp_set[surveytiming == "peak", .N , .(DOW,SUBBASIN)][N>1, paste(DOW,SUBBASIN)]
-
 setorder(clp_set, DOW,SUBBASIN,year)
 
+clp_set_baci_yrs <- clp_set[surveytiming == "peak", , ]
 
 
-clp_set_baci_years <- clp_set[paste(DOW, SUBBASIN) %in% clp_set[surveytiming == "peak", .N , .(DOW,SUBBASIN) & surveytiming][N>1, paste(DOW,SUBBASIN)], 
-                              ] [order(DOW,SUBBASIN,year)]
+clp_set_baci_yrs[ , previous_abund := shift(clp_vfoc)  , . (DOW,SUBBASIN)]
 
-lm(data = clp_set_baci_years, clp_vfoc~managed_last_y)
+clp_set_baci_yrs[ , delta_y_abund := clp_vfoc - previous_abund  ,]
+
+ggplot(clp_set_baci_yrs, aes( delta_y_abund, color = as.factor(clp_managed) ))+
+  geom_density()
+
+ggplot(clp_set_baci_yrs, aes( delta_y_abund, as.factor(clp_managed) ))+
+  geom_boxplot()
+
+summary(lm(data = clp_set_baci_yrs, delta_y_abund~clp_managed))
+summary(lm(data = clp_set_baci_yrs, delta_y_abund~clp_managed + managed_last_y))
+
+#EWM
+
+setorder(ewm_set,DOW,SUBBASIN,year)
+
+ewm_set <- ewm_set[!duplicated(ewm_set[ , .(DOW,SUBBASIN,year) ,]) , ,]
+
+ewm_set[ , previous_abund := shift(ewm_vfoc)  , . (DOW,SUBBASIN)]
+
+ewm_set[ , delta_y_abund := ewm_vfoc - previous_abund  ,]
+
+ggplot(ewm_set[ewm_pretrt_mod == 0], aes( delta_y_abund, color = as.factor(ewm_managed) ))+
+  geom_density()
+
+ggplot(ewm_set[ewm_pretrt_mod == 0], aes( delta_y_abund, as.factor(ewm_managed) ))+
+  geom_boxplot()
+
+summary(lm(data = ewm_set[ewm_pretrt_mod == 0], delta_y_abund~ewm_managed))
+summary(lm(data = ewm_set[ewm_pretrt_mod == 0], delta_y_abund~ewm_managed + managed_last_y))
+
+
+
 
 #' To address this problem, we can use an approach called matching. With
 #' matching we will choose a set of "control" surveys that represent a
