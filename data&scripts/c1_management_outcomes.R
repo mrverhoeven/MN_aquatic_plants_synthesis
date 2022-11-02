@@ -10,11 +10,12 @@
 #'           collapsed: false
 #'---
 
-# !!!!!!!!!!!!!!!!!!!!!!!!CHECK DOWs in SUBBASIN MERGE to Survey DATA!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-
-# On 14 June, 2022 this script resulted in 1785 records for management actions (this line copied at footer)
+#' On 14 June, 2022 this script resulted in 1785 records for management actions
+#' (this line copied at footer).
+#' 
+#' On 28 October, this script was updated to alter how mgmt data were merged to
+#' trt data (keyed by parent dow and subbasin name). This created a major
+#' duplication issue in the data. 
 
 # header ------------------------------------------------------------------
 
