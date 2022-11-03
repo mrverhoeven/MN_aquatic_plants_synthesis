@@ -18,7 +18,8 @@
 
 #' ## Document Preamble
   #+ warning = FALSE
-  # load libraries ------------------------------------------------------------------
+
+# load libraries ------------------------------------------------------------------
 # # Load Libraries
 library(data.table)
 # update_dev_pkg()# remotes::install_github("Rdatatable/data.table")
@@ -218,6 +219,12 @@ surveys[b, max_depth_dow := max_depth, on = .(DOW = DOWLKNUM)]
 surveys[b, year_EWM_infes := YEAR_INFESTED, on = .(DOW = DOWLKNUM)]
 surveys[c, roads_500m_mperha := buffer500m_roaddensity_density_mperha, on = .(DOW = DOWLKNUM) ]
 
+# add some covariates (Thanks Shyam!)
+surveys_mgmt[b, GDD_10C := mean.gdd_wtr_10c, on = .(DOW = DOWLKNUM)]
+surveys_mgmt[b, max_depth_dow := max_depth, on = .(DOW = DOWLKNUM)]
+surveys_mgmt[b, year_EWM_infes := YEAR_INFESTED, on = .(DOW = DOWLKNUM)]
+surveys_mgmt[c, roads_500m_mperha := buffer500m_roaddensity_density_mperha, on = .(DOW = DOWLKNUM) ]
+
 
 #' we can assume if no trt records post 2012, that the survey is on a 0 history lake - we'll do this now are re-visualize (this will add tons of zeros along the x axis)
 surveys_mgmt[is.na(clp_m) & year > 2011, clp_m:=0]
@@ -247,10 +254,6 @@ surveys_mgmt[ ,DATESURVEYSTART := as.IDate(DATESURVEYSTART, format = "%m/%d/%Y")
 surveys_mgmt[ , p_dow := round(DOW/100, 0)]
 
 # data familiarization ----------------------------------------------------
-
-
-#' 
-
 
 #invader as a fn of mgmt:
 
@@ -822,69 +825,116 @@ ewm_BACI_yrs[dyears==2, .N, .(!is.na(trt_date_last_y))]
 
 
 
-s2_trtmatrix_clp
 
-
-# does management reduce invaders? ----------------------------------------
-
+# NAIVE models viz and test----------------------------------------
+#' does management reduce invaders? 
 #within year
-ggplot(surveys[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_ntrtdates>0, Myriophyllum_spicatum/n_points_vegetated ) ,)+
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_managed, Myriophyllum_spicatum/n_points_vegetated ) ,)+
   geom_boxplot()
-ggplot(surveys[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_ntrtdates>0, Potamogeton_crispus/n_points_vegetated ) ,)+
+surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0, .N, ewm_managed]
+
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_managed, simpsons_div_nat ) ,)+
   geom_boxplot()
-# density plots show where our problems may be arising
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_managed, nat_richness ) ,)+
+  geom_boxplot()
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_managed, simpsons_div_nat/nat_richness ) ,)+
+  geom_boxplot()
 
-ggplot(surveys[yday(DATESURVEYSTART) > 151 & Myriophyllum_spicatum > 0  & year > 2011], aes(Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed) ,)+
-  geom_density()
+summary(glm( Myriophyllum_spicatum/n_points_vegetated~ewm_managed,
+               data =surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0],
+               family = binomial (link = "log"), 
+               weights = n_points_vegetated))
+summary(lm( simpsons_div_nat~ewm_managed   ,data =surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0] ))
+summary(glm( nat_richness~ewm_managed   ,
+             data =surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], 
+             family = poisson(link = "log")))
+summary(glm( simpsons_div_nat/nat_richness~ewm_managed   ,
+             data =surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0],
+             family = binomial(link = "logit")))
 
-ggplot(surveys[yday(DATESURVEYSTART) < 181 & yday(DATESURVEYSTART) > 151 & Potamogeton_crispus > 0 & year > 2011], aes( Potamogeton_crispus/n_points_vegetated, color = clp_managed ))+
-  geom_density()
+
+
+ggplot(surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_managed, Potamogeton_crispus/n_points_vegetated ) ,)+
+  geom_boxplot()
+surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 , .N , clp_managed ]
+
+ggplot(surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_managed, simpsons_div_nat ) ,)+
+  geom_boxplot()
+ggplot(surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_managed, nat_richness ) ,)+
+  geom_boxplot()
+ggplot(surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_managed, simpsons_div_nat/nat_richness ) ,)+
+  geom_boxplot()
+
+summary(glm( Potamogeton_crispus/n_points_vegetated~clp_managed,
+             data =surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ],
+             weights = n_points_vegetated,
+             family = binomial(link = "logit")))
+
+
+summary(lm( simpsons_div_nat~clp_managed   ,
+            data = surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ] ))
+summary(glm( nat_richness~clp_managed   ,
+             data =surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ], family = poisson(link = "log") ))
+summary(glm( simpsons_div_nat/nat_richness~clp_managed   ,
+             data =surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ],
+             family = binomial(link = "logit")))
+
+
+# NAIVE models discussion -------------------------------------------------
+
+# density plots might show where our problems may be arising
 
 #historical mgmt index
-ggplot(surveys[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_m, Myriophyllum_spicatum/n_points_vegetated ) ,)+
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_m, Myriophyllum_spicatum/n_points_vegetated ) ,)+
   geom_point()+ geom_smooth(method = "lm")
-ggplot(surveys[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_m, Potamogeton_crispus/n_points_vegetated ) ,)+
+ggplot(surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_m, Potamogeton_crispus/n_points_vegetated ) ,)+
   geom_point()+ geom_smooth(method = "lm")
 
 
 
 #' Erm... NOPE: we see no strong correlation between more invader management index and less invader. That seems entirely counter intuitive.
 #' 
-#' How about we consider the magnitude of the treatments?
+#' How about we consider the magnitude of the treatments? Maybe we've got many small treatments? 
 
-ggplot(surveys[Myriophyllum_spicatum>0 & ewm_pretrt_mod == 0 & year>2011],
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & ewm_pretrt_mod == 0 & year>2011],
        aes(ewm_controlacres, Myriophyllum_spicatum/n_points_vegetated ) ,)+
   geom_point()+ geom_smooth(method = "lm")
-ggplot(surveys[yday(DATESURVEYSTART)<181 & Potamogeton_crispus>0 & clp_pretrt_mod == 0& clp_controlacres<200], aes(clp_controlacres, Potamogeton_crispus/n_points_vegetated ) ,)+
+ggplot(surveys_mgmt[yday(DATESURVEYSTART)<181 & Potamogeton_crispus>0 & clp_pretrt_mod == 0& clp_controlacres<200], aes(clp_controlacres, Potamogeton_crispus/n_points_vegetated ) ,)+
   geom_point()+ geom_smooth(method = "lm")
 
-surveys[ , hist(clp_controlacres) ,]
-surveys[ , hist(log(clp_controlacres)) ,]
+surveys_mgmt[ , hist(clp_controlacres) ,]
+surveys_mgmt[ , hist(log(clp_controlacres)) ,]
 
-surveys[ , hist(ewm_controlacres) ,]
-surveys[ , hist(log(ewm_controlacres)) ,]
+surveys_mgmt[ , hist(ewm_controlacres) ,]
+surveys_mgmt[ , hist(log(ewm_controlacres)) ,]
+
+#' If we are going to use these acreage data we really ought to control for the
+#' pop size of the invader that was targeted. And we can't estimate that
+#' particularly well because we've got no good connection to the area of the
+#' lake at a given depth (no hypsography). 
+
 
 #' change over time? Is that the key here? NOte that currently each year is a Y/N
 #' for treatment, thus it's not entirely clear how these lines/slopes are
 #' partitioned into managed/unmaganed where a given lake has multiple tim steps,
 #' each varying in the management category...
 #' this plot looks really promising 
-ggplot(surveys[ Myriophyllum_spicatum>0& year>2011& ewm_pretrt_mod == 0 & yday(DATESURVEYSTART) > 151], aes(DATESURVEYSTART, Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed))+
+ggplot(surveys_mgmt[ Myriophyllum_spicatum>0& year>2011& ewm_pretrt_mod == 0 & yday(DATESURVEYSTART) > 151], aes(DATESURVEYSTART, Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed))+
   geom_path(aes(group = DOW), alpha = .1)+
   geom_smooth(method = "lm", )
 
 #plot these relative to the "infestation" year
-ggplot(surveys[Myriophyllum_spicatum>0& year>2011& ewm_pretrt_mod == 0 & yday(DATESURVEYSTART) > 151], aes(year - year_EWM_infes, Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed))+
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0& year>2011& ewm_pretrt_mod == 0 & yday(DATESURVEYSTART) > 151], aes(year - year_EWM_infes, Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed))+
   geom_path(aes(group = DOW), alpha = .1)+
   geom_smooth(method = "lm", )
 
 #look only at surveys post infestation
-ggplot(surveys[Myriophyllum_spicatum>0 & year>2011 & (year - year_EWM_infes)>=0 & ewm_pretrt_mod == 0 & yday(DATESURVEYSTART) > 151 ], aes(year - year_EWM_infes, Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed))+
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & (year - year_EWM_infes)>=0 & ewm_pretrt_mod == 0 & yday(DATESURVEYSTART) > 151 ], aes(year - year_EWM_infes, Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed))+
   geom_path(aes(group = DOW), alpha = .1)+
   geom_smooth(method = "lm", )
 
 #again, make sure we're looking at only post-trt surveys.
-ggplot(surveys[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0 & yday(DATESURVEYSTART) > 151 ], aes(DATESURVEYSTART, Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed))+
+ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0 & yday(DATESURVEYSTART) > 151 ], aes(DATESURVEYSTART, Myriophyllum_spicatum/n_points_vegetated, color = ewm_managed))+
   geom_path(aes(group = DOW), alpha = .1)+
   geom_smooth(method = "lm", )
 
@@ -895,177 +945,152 @@ ggplot(surveys[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0 & yday(
 #' This idea/concept needs refinement--the mechanism is vague and not clearly
 #' articulated. And the figure doesn't really add much help...
 #' 
-surveys[ , time_since_EWM := year - year_EWM_infes ,]
+surveys_mgmt[ , time_since_EWM := year - year_EWM_infes ,]
 
-ggplot(surveys[], aes( time_since_EWM, Myriophyllum_spicatum/n_points_vegetated))+
+ggplot(surveys_mgmt[], aes( time_since_EWM, Myriophyllum_spicatum/n_points_vegetated))+
   geom_point()+
   facet_wrap(~year)
 
 
-ggplot(surveys[yday(DATESURVEYSTART) < 181 & yday(DATESURVEYSTART) > 151 & year > 2011 & clp_pretrt_mod == 0], aes(DATESURVEYSTART, Potamogeton_crispus/n_points_vegetated, color = clp_managed))+
+ggplot(surveys_mgmt[yday(DATESURVEYSTART) < 181 & yday(DATESURVEYSTART) > 151 & year > 2011 & clp_pretrt_mod == 0], aes(DATESURVEYSTART, Potamogeton_crispus/n_points_vegetated, color = clp_managed))+
   geom_path(aes(group = DOW), alpha = .1)+
   geom_smooth(method = "lm", )
 
-#' Alrighty... we can start to see why we need causal inference methods in this
-#' analysis. Because treatment decisions are influenced by how much of the
-#' invader is there, our most treated lakes are those with the highest
-#' abundances of the invader. We need a "counterfactual" that represents how
+
+
+
+
+
+# VLN 2020 data prep ----------------------------------------------------------
+
+#' now we want to estimate in yr, carryover, and historical trt effects
+#' 
+#' to do this we need to add some stuff to the surveys_mgmt data:
+#' 
+
+names(surveys_mgmt)
+
+surveys_mgmt[clp_mgmt_BACI_inyr, on = .(p_dow, SUBBASIN = subbasin, year = yr_plus_one), clp_trt_date_last_y := date]
+surveys_mgmt[ ewm_mgmt_BACI_inyr, on = .(p_dow, SUBBASIN = subbasin, year = yr_plus_one), ewm_trt_date_last_y := date ]
+
+surveys_mgmt[ , clp_managed_last_y := !is.na(clp_trt_date_last_y) ,  ]
+surveys_mgmt[ , ewm_managed_last_y := !is.na(ewm_trt_date_last_y) ,  ]
+
+surveys_mgmt[ ,clp_m_priort2 := clp_m_priort - as.integer(clp_managed_last_y)/2]
+surveys_mgmt[clp_m_priort2 == -0.5, clp_m_priort2 := 0]
+
+surveys_mgmt[ ,ewm_m_priort2 := ewm_m_priort - as.integer(ewm_managed_last_y)/2]
+surveys_mgmt[ewm_m_priort2 < 0, ewm_m_priort2 := 0]
+
+
+ggplot(data = surveys_mgmt, aes(clp_m_priort2, clp_managed ))+
+  geom_boxplot()
+
+ggplot(data = surveys_mgmt, aes(ewm_m_priort2, ewm_managed ))+
+  geom_boxplot()
+
+#can we even estimate the things we'd like to?
+summary(surveys_mgmt[ year > 2011 , .(clp_managed, clp_managed_last_y, clp_m_priort2>0, ewm_managed, ewm_managed_last_y, ewm_m_priort2>0) , ])
+
+
+
+# VLN 2020 clp viz and test -----------------------------------------------
+
+
+#trim by year (where we know that we've got trt records)
+clp_set <- surveys_mgmt[ month(DATESURVEYSTART) %in% c(3:6) & year > 2011]
+
+#and only lakes with clp known
+clp_set <- clp_set[DOW %in% surveys[ , max(Potamogeton_crispus) , .(DOW) ][,DOW, ], , ]
+
+clp_set[, .N ,month(DATESURVEYSTART)]
+clp_set[, .("surveys" = .N), DOW][ , .N  , surveys][order(surveys)]
+
+clp_set[ , clp_vfoc := Potamogeton_crispus/n_points_vegetated ,]
+
+# ggplot(data = clp_set[DOW %in% clp_set[, .N , DOW][N>1, DOW]], aes( year,clp_vfoc ))+
+#   geom_line(aes(color = month(DATESURVEYSTART) == 6))+
+#   facet_wrap(~DOW)+
+#   geom_point(aes(year,clp_vfoc, color = clp_managed))
+
+ggplot(clp_set[clp_pretrt_mod == 0], aes( clp_m_priort, clp_managed ) )+
+  geom_boxplot()
+
+ggplot(clp_set[clp_pretrt_mod == 0], aes( clp_m_priort, clp_vfoc, col = clp_managed ) )+
+  geom_point()
+clp_set[ , dowbasin := paste(DOW,SUBBASIN, sep = "_"),  ]
+
+summary(glmer(data = clp_set[clp_pretrt_mod == 0], clp_vfoc ~ clp_managed + clp_managed_last_y + clp_m_priort2 + (1| dowbasin), weights = n_points_vegetated, family = binomial(link = "logit")))
+
+
+# VLN 2020 ewm viz and test -----------------------------------------------
+
+ewm_set <- surveys_mgmt[ year > 2011 & yday(DATESURVEYSTART) > 151, , ]
+
+ewm_set[ , ewm_vfoc := Myriophyllum_spicatum/n_points_vegetated , ] 
+
+ggplot(ewm_set[Myriophyllum_spicatum>0], aes( ewm_vfoc, color = as.factor(ewm_managed_last_y) ))+
+  geom_density()
+
+ggplot(ewm_set[Myriophyllum_spicatum>0], aes( ewm_managed_last_y, ewm_vfoc ) )+
+  geom_boxplot()
+
+ewm_set[ , dowbasin := paste(DOW,SUBBASIN, sep = "_"),  ]
+
+summary(glmer(data = ewm_set[Myriophyllum_spicatum>0 & ewm_pretrt_mod==0], ewm_vfoc ~ ewm_managed + ewm_managed_last_y + ewm_m_priort2 + (1|dowbasin), weights = n_points_vegetated, family = binomial(link = "logit") ))
+
+
+# VLN 2020 clp native viz and test --------------------------------------------
+
+surveys_mgmt[year>2011 & yday(DATESURVEYSTART)>151, .N , .(clp_managed, clp_managed_last_y, mgmthist = clp_m_priort2==0) ][order(clp_managed, clp_managed_last_y)]
+
+surveys_mgmt[ , dowbasin := paste(DOW,SUBBASIN, sep = "_")]
+
+ggplot(surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ], aes(simpsons_div_nat, clp_managed))+
+  geom_boxplot()
+ggplot(surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ], aes(nat_richness, clp_managed))+
+  geom_boxplot()
+ggplot(surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ], aes(simpsons_div_nat/nat_richness, clp_managed))+
+  geom_boxplot()
+
+summary(lmer(data = surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ],
+             simpsons_div_nat ~ clp_managed + clp_managed_last_y + clp_m_priort2 + (1| dowbasin)))
+summary(glmer(data = surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ], nat_richness ~ clp_managed + clp_managed_last_y + clp_m_priort2 + (1| dowbasin), family = poisson(link = "log")))
+
+#Needs troubleshooting
+# summary(glmer(data = surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ], simpsons_div_nat/nat_richness ~ clp_managed + clp_managed_last_y + clp_m_priort2 + (1| dowbasin), family = binomial(link = "logit")))
+summary(lmer(data = surveys_mgmt[paste(DOW,SUBBASIN) %in% surveys_mgmt[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & year>2011 & yday(DATESURVEYSTART)>151 ], simpsons_div_nat/nat_richness ~ clp_managed + clp_managed_last_y + clp_m_priort2 + (1| dowbasin)))
+
+
+# VLN 2020 ewm native viz and test --------------------------------------------
+
+ggplot(ewm_set, aes(simpsons_div_nat, ewm_managed))+
+  geom_boxplot()
+ggplot(ewm_set, aes(nat_richness, ewm_managed))+
+  geom_boxplot()
+ggplot(ewm_set, aes(simpsons_div_nat/nat_richness, ewm_managed))+
+  geom_boxplot()
+
+summary(lmer(data = ewm_set[ewm_pretrt_mod == 0], simpsons_div_nat ~ ewm_managed + ewm_managed_last_y + ewm_m_priort2 + (1| dowbasin)))
+summary(glmer(data = ewm_set[ewm_pretrt_mod == 0], nat_richness ~ ewm_managed + ewm_managed_last_y + ewm_m_priort2 + (1| dowbasin), family = poisson(link = "log")))
+summary(glmer(data = ewm_set[ewm_pretrt_mod == 0], simpsons_div_nat/nat_richness ~ ewm_managed + ewm_managed_last_y + ewm_m_priort2 + (1| dowbasin), family = binomial(link = "logit")))
+
+
+
+# MATCHING discussion ----------------------------------------------------------------
+
+#' Alrighty... we can start to see why we might need causal inference methods in
+#' this analysis. A few interesting endogeneity problems exist here:
+#' 
+#' 1. Because treatment decisions are influenced by how much of the
+#' invader is there, our treated beta is correlated with the response variable
+#' outside of the treatment effect
+#' 
+#' 2. We need a "counterfactual" that represents how
 #' the abundance of invader would have been in lake-year (Xt) had m been zero.
 #' If we limit our analyses to ONLY lakes with the invader, the prob starts to
 #' go away (an effect that is less drastic for CLP b/c most early season CLP 
 #' surveys are done on lakes where we expect CLP to be present):
-
-
-
-
-# trt eff on T+1 ----------------------------------------------------------
-
-
-surveys[ , sum(clp_managed)  , .(DOW, SUBBASIN)][V1>0]
-
-clp_set <- surveys[ month(DATESURVEYSTART) %in% c(3:6) & year > 2011]
-
-clp_set[, .N ,month(DATESURVEYSTART)]
-clp_set[, .N , DOW][N>1, DOW]
-clp_set[is.na(clp_managed), clp_managed := F]
-clp_set[ , clp_vfoc := Potamogeton_crispus/n_points_vegetated ,]
-clp_set[month(DATESURVEYSTART)==6 , surveytiming := "peak",]
-clp_set[month(DATESURVEYSTART)!=6 , surveytiming := "early",]
-
-
-ggplot(data = clp_set[DOW %in% clp_set[, .N , DOW][N>1, DOW]], aes( year,clp_vfoc ))+
-  geom_line(aes(color = month(DATESURVEYSTART) == 6))+
-  facet_wrap(~DOW)+
-  geom_point(aes(year,clp_vfoc, color = clp_managed))
-
-
-clp_mgmt <- melt(dcast(clp_set, DOW+SUBBASIN~year, value.var = c("clp_managed")), id.vars = c("DOW","SUBBASIN"), variable.name = "year", value.name = "managed")
-
-clp_mgmt[ , managed_last_y := shift(managed, type = "lag"), .(DOW,SUBBASIN)]
-clp_mgmt[ , year := as.integer(as.character(year)) ,]
-
-clp_set[clp_mgmt, on = .(year = year, DOW = DOW, SUBBASIN = SUBBASIN), managed_last_y := managed_last_y]
-
-
-ggplot(clp_set[surveytiming == "early" ], aes( clp_vfoc, color = as.factor(managed_last_y) ))+
-  geom_density()
-
-ggplot(clp_set[surveytiming == "early" ], aes( managed_last_y == T, clp_vfoc ) )+
-  geom_boxplot()
-ggplot(clp_set[surveytiming == "peak" ], aes( managed_last_y == T, clp_vfoc ) )+
-  geom_boxplot()
-
-summary(lm(data = clp_set[surveytiming == "early" ], clp_vfoc ~ managed_last_y) )
-summary(lm(data = clp_set[surveytiming == "early" ], clp_vfoc ~ managed_last_y + clp_m_priort) )
-summary(lm(data = clp_set[surveytiming == "peak" ], clp_vfoc ~ clp_managed + managed_last_y + clp_m_priort ))
-
-#natives response
-
-
-
-#and EWM?
-
-ewm_set <- surveys[ year > 2011 & yday(DATESURVEYSTART) > 151, , ]
-
-ewm_mgmt <- melt(dcast(ewm_set, DOW+SUBBASIN~year, value.var = c("ewm_managed")), id.vars = c("DOW","SUBBASIN"), variable.name = "year", value.name = "managed")
-
-ewm
-
-ewm_mgmt[ , managed_last_y := shift(managed, type = "lag"), .(DOW,SUBBASIN)]
-ewm_mgmt[ , year := as.integer(as.character(year)) ,]
-
-ewm_set[ewm_mgmt, on = .(year = year, DOW = DOW, SUBBASIN = SUBBASIN), managed_last_y := managed_last_y>0]
-ewm_set[ , ewm_vfoc := Myriophyllum_spicatum/n_points_vegetated ,]
-
-ggplot(ewm_set[Myriophyllum_spicatum>0], aes( ewm_vfoc, color = as.factor(managed_last_y) ))+
-  geom_density()+scale_x_log10()
-
-ggplot(ewm_set[Myriophyllum_spicatum>0], aes( managed_last_y == 1, ewm_vfoc ) )+
-  geom_boxplot()
-
-summary(lm(data = ewm_set[Myriophyllum_spicatum>0], ewm_vfoc ~ managed_last_y) )
-summary(lm(data = ewm_set[Myriophyllum_spicatum>0], ewm_vfoc ~ managed_last_y + ewm_m_priort) )
-summary(lm(data = ewm_set[Myriophyllum_spicatum>0 & ewm_pretrt_mod==0], ewm_vfoc ~ ewm_managed + managed_last_y + ewm_m_priort ))
-
-# native response - plain jane
-summary(lm(data = ewm_set[Myriophyllum_spicatum>0& ewm_pretrt_mod == 1], simpsons_div_nat ~ managed_last_y) )
-summary(lm(data = ewm_set[Myriophyllum_spicatum>0& ewm_pretrt_mod == 1], simpsons_div_nat ~ managed_last_y + ewm_m_priort) )
-summary(lm(data = ewm_set[Myriophyllum_spicatum>0 & ewm_pretrt_mod == 0], simpsons_div_nat ~ ewm_managed + managed_last_y + ewm_m_priort ))
-
-summary(lm(data = ewm_set[Myriophyllum_spicatum>0& ewm_pretrt_mod == 1], simpsons_div_nat ~ ewm_vfoc) )
-
-
-# trt eff w/in yr BACI - CLP ----------------------------------------------
-
-
-
-clp_set[ , .N , .(DOW,year)][N>1, paste(DOW,year)]
-
-
-clp_set_baci <- clp_set[paste(DOW, year) %in% clp_set[ , .N , .(DOW,SUBBASIN,year)][N>1, paste(DOW,year)], ][order(DOW, SUBBASIN, DATESURVEYSTART)]
-
-clp_set_baci[ , prev_abund := shift(clp_vfoc) , .(DOW,SUBBASIN,year) ]
-
-clp_set_baci[ ,.(DOW, year, DATESURVEYSTART, clp_vfoc, clp_managed, MULTIPARTSURVEY,SUBBASIN, prev_abund) , ]
-
-clp_set_baci[month(DATESURVEYSTART) == 6, delta_clp := clp_vfoc-prev_abund ]
-
-ggplot(clp_set_baci, aes( delta_clp, color = as.factor(clp_managed) ))+
-  geom_density()
-
-ggplot(clp_set_baci[surveytiming == "peak"], aes( delta_clp, as.factor(clp_managed) ))+
-  geom_boxplot()
-
-summary(lm(delta_clp~clp_managed, data=clp_set_baci[surveytiming == "peak"]))
-summary(lm(delta_clp~clp_managed + managed_last_y, data=clp_set_baci[surveytiming == "peak"]))
-summary(lm(delta_clp~clp_managed + managed_last_y + clp_m_priort, data=clp_set_baci[surveytiming == "peak"]))
-summary(lm(delta_clp~clp_managed + clp_m_priort, data=clp_set_baci[surveytiming == "peak"]))
-
-# trt eff BACI across yrs -------------------------------------------------
-
-
-clp_set[surveytiming == "peak", .N]
-clp_set[surveytiming == "peak", .N , .(DOW,SUBBASIN)][N>1, paste(DOW,SUBBASIN)]
-setorder(clp_set, DOW,SUBBASIN,year)
-
-clp_set_baci_yrs <- clp_set[surveytiming == "peak", , ]
-
-
-clp_set_baci_yrs[ , previous_abund := shift(clp_vfoc)  , . (DOW,SUBBASIN)]
-
-clp_set_baci_yrs[ , delta_y_abund := clp_vfoc - previous_abund  ,]
-
-ggplot(clp_set_baci_yrs, aes( delta_y_abund, color = as.factor(clp_managed) ))+
-  geom_density()
-
-ggplot(clp_set_baci_yrs, aes( delta_y_abund, as.factor(clp_managed) ))+
-  geom_boxplot()
-
-summary(lm(data = clp_set_baci_yrs, delta_y_abund~clp_managed))
-summary(lm(data = clp_set_baci_yrs, delta_y_abund~clp_managed + managed_last_y))
-
-#EWM
-
-setorder(ewm_set,DOW,SUBBASIN,year)
-
-ewm_set <- ewm_set[!duplicated(ewm_set[ , .(DOW,SUBBASIN,year) ,]) , ,]
-
-ewm_set[ , previous_abund := shift(ewm_vfoc)  , . (DOW,SUBBASIN)]
-
-ewm_set[ , delta_y_abund := ewm_vfoc - previous_abund  ,]
-
-ggplot(ewm_set[ewm_pretrt_mod == 0], aes( delta_y_abund, color = as.factor(ewm_managed) ))+
-  geom_density()
-
-ggplot(ewm_set[ewm_pretrt_mod == 0], aes( delta_y_abund, as.factor(ewm_managed) ))+
-  geom_boxplot()
-
-summary(lm(data = ewm_set[ewm_pretrt_mod == 0], delta_y_abund~ewm_managed))
-summary(lm(data = ewm_set[ewm_pretrt_mod == 0], delta_y_abund~ewm_managed + managed_last_y))
-
-
-
-
 #' To address this problem, we can use an approach called matching. With
 #' matching we will choose a set of "control" surveys that represent a
 #' sample from the unmanaged set that are chosen to be good "counterfactuals"
@@ -1074,7 +1099,7 @@ summary(lm(data = ewm_set[ewm_pretrt_mod == 0], delta_y_abund~ewm_managed + mana
 #' From: https://cran.r-project.org/web/packages/MatchIt/vignettes/MatchIt.html
 #' The goal of matching is to produce covariate balance, that is, for the
 #' distributions of covariates in the two groups to be approximately equal to
-#' each other, as they would be in a successful randomized experiment.
+#' each other, as they would be in a successfully randomized experiment.
 #' 
 #' Covariates should be those that cause variation in the outcome and selection
 #' into treatment group; these are known as confounding variables. See
@@ -1094,19 +1119,26 @@ summary(lm(data = ewm_set[ewm_pretrt_mod == 0], delta_y_abund~ewm_managed + mana
 #' half of predictors for EWM abund (and P/A, too).
 #' 
 
+
+
+# MATCHING ewm prep -------------------------------------------------------
+
+
 # No matching; constructing a pre-match matchit object
 
 
 #run matching for EWM:
-surveys[is.na(ewm_managed) , ewm_managed := F  , ]
+# data complete?
+surveys_mgmt[  , .N , .( year, ewm_managed) ][order(year)]
+  surveys_mgmt_2012p <- surveys_mgmt[year>2011]
+surveys_mgmt_2012p[ ,.N,  .(depth = is.na(max_depth_dow), GDD = is.na(GDD_10C), Secchi = is.na(Secchi_m), roads = is.na(roads_500m_mperha)) ]
+  surveys_mgmt_2012p <- surveys_mgmt_2012p[!is.na(Secchi_m) & !is.na(max_depth_dow) & !is.na(GDD_10C) & !is.na(roads_500m_mperha) ]
 
-surveys[ ,.N,  is.na(Secchi_m) ]
+  surveys_mgmt_2012p[ , .N , .( lake_class, ewm_managed)][order(lake_class)]
+  
 
 m.out0 <- matchit(ewm_managed ~ ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
-                  data = surveys[!is.na(Secchi_m) &
-                                   !is.na(GDD_10C)&
-                                   !is.na(max_depth_dow)&
-                                   yday(DATESURVEYSTART) > 151 &
+                  data = surveys_mgmt_2012p[yday(DATESURVEYSTART) > 151 &
                                    Myriophyllum_spicatum > 0 & 
                                    ewm_pretrt_mod == 0],
                   method = NULL, distance = "glm", link = "probit")
@@ -1117,12 +1149,9 @@ summary(m.out0)
 
 # 1:1 NN PS matching w/o replacement
 m.out1 <- matchit(ewm_managed ~ ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
-                  data = surveys[!is.na(Secchi_m) &
-                                   !is.na(GDD_10C)&
-                                   !is.na(max_depth_dow)&
-                                   yday(DATESURVEYSTART) > 151 &
-                                   Myriophyllum_spicatum > 0 & 
-                                   ewm_pretrt_mod == 0],
+                  data = surveys_mgmt_2012p[yday(DATESURVEYSTART) > 151 &
+                                              Myriophyllum_spicatum > 0 & 
+                                              ewm_pretrt_mod == 0],
                   method = "nearest", distance = "glm", link = "probit")
 
 m.out1
@@ -1139,12 +1168,9 @@ plot(m.out1, type = "qq", interactive = FALSE,
 
 # Full matching on a probit PS
 m.out2 <- matchit(ewm_managed ~ ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
-                  data = surveys[!is.na(Secchi_m) &
-                                   !is.na(GDD_10C)&
-                                   !is.na(max_depth_dow)&
-                                   yday(DATESURVEYSTART) > 151 &
-                                   Myriophyllum_spicatum > 0 & 
-                                   ewm_pretrt_mod == 0],
+                  data = surveys_mgmt_2012p[yday(DATESURVEYSTART) > 151 &
+                                              Myriophyllum_spicatum > 0 & 
+                                              ewm_pretrt_mod == 0],
                   method = "full", distance = "glm", link = "probit")
 m.out2
 
@@ -1160,7 +1186,7 @@ plot(m.out2, type = "qq", interactive = FALSE,
 
 plot(summary(m.out2))
 
-# EWM - Analysis of matched set of survey data ----------------------------------------
+# MATCHING ewm analysis ----------------------------------------
 
 m.data1 <- match.data(m.out1)
 
@@ -1181,18 +1207,41 @@ fit2 <- glm(Myriophyllum_spicatum/n_points_vegetated ~ ewm_managed + ewm_m_prior
 
 coeftest(fit2, vcov. = vcovCL, cluster = ~subclass)
 
-#repeat matching steps for CLP:
+# MATCHING ewm native analysis ----------------------------------------
 
-surveys[is.na(clp_managed) , clp_managed := F  , ]
+#Test for effect on native div:
 
-surveys[ ,.N,  Secchi_m ]
+fit1d <- lm(simpsons_div_nat ~ ewm_managed + ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class)  , data = m.data1, weights = weights)
+fit1r <- lm(nat_richness ~ ewm_managed + ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class)  , data = m.data1, weights = weights)
+fit1e <- lm(simpsons_div_nat/nat_richness ~ ewm_managed + ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class)  , data = m.data1, weights = weights)
+
+  coeftest(fit1d, vcov. = vcovCL, cluster = ~subclass)
+  coeftest(fit1r, vcov. = vcovCL, cluster = ~subclass)
+  coeftest(fit1e, vcov. = vcovCL, cluster = ~subclass)
+
+#and recall full match had better balance:
+fit2d <- lm(simpsons_div_nat ~ ewm_managed + ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class)  ,
+            data = m.data2, weights = weights)
+fit2r <- glm(nat_richness ~ ewm_managed + ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class)  ,
+            data = m.data2, weights = weights, family = poisson(link = "log"))
+fit2e <- glm(simpsons_div_nat/nat_richness ~ ewm_managed + ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class)  ,
+            data = m.data2, weights = weights, family = binomial(link = "logit"))
+  
+  coeftest(fit2d, vcov. = vcovCL, cluster = ~subclass)
+  coeftest(fit2r, vcov. = vcovCL, cluster = ~subclass)
+  coeftest(fit2e, vcov. = vcovCL, cluster = ~subclass)
+  
+
+
+# MATCHING clp prep -------------------------------------------------------
+
+#run matching for CLP:
+# data complete?
+surveys_mgmt_2012p[  , .N , .( year, clp_managed) ][order(year)]
+surveys_mgmt_2012p[ , .N , .( lake_class, clp_managed)][order(lake_class)]
 
 m.out0.1 <- matchit(clp_managed ~  clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
-                  data = surveys[!is.na(Secchi_m) &
-                                   !is.na(GDD_10C)&
-                                   !is.na(max_depth_dow)&
-                                   !is.na(roads_500m_mperha) &
-                                   yday(DATESURVEYSTART) < 181 & 
+                  data = surveys_mgmt_2012p[yday(DATESURVEYSTART) < 181 & 
                                    clp_pretrt_mod == 0],
                   method = NULL, distance = "glm", link = "probit")
 
@@ -1202,18 +1251,14 @@ summary(m.out0.1)
 
 # 1:1 NN PS matching w/o replacement
 m.out1.1 <- matchit(clp_managed ~  clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
-                  data = surveys[!is.na(Secchi_m) &
-                                   !is.na(GDD_10C)&
-                                   !is.na(max_depth_dow)&
-                                   !is.na(roads_500m_mperha)&
-                                   yday(DATESURVEYSTART) < 181 & 
-                                   ewm_pretrt_mod == 0],
+                    data = surveys_mgmt_2012p[yday(DATESURVEYSTART) < 181 & 
+                                                clp_pretrt_mod == 0],
                   method = "nearest", distance = "glm", link = "probit")
 
 m.out1.1
 
 # Checking balance after NN matching
-summary(m.out1, un = FALSE)
+summary(m.out1.1, un = FALSE)
 
 plot(m.out1.1, type = "jitter", interactive = FALSE)
 
@@ -1224,12 +1269,8 @@ plot(m.out1.1, type = "qq", interactive = FALSE,
 
 # Full matching on a probit PS
 m.out2.1 <- matchit(clp_managed ~  clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
-                  data = surveys[!is.na(Secchi_m) &
-                                   !is.na(GDD_10C)&
-                                   !is.na(max_depth_dow)&
-                                   !is.na(roads_500m_mperha)&
-                                   yday(DATESURVEYSTART) < 181 & 
-                                   ewm_pretrt_mod == 0],
+                    data = surveys_mgmt_2012p[yday(DATESURVEYSTART) < 181 & 
+                                                clp_pretrt_mod == 0],
                   method = "full", distance = "glm", link = "probit")
 m.out2.1
 
@@ -1245,7 +1286,7 @@ plot(m.out2.1, type = "qq", interactive = FALSE,
 
 plot(summary(m.out2.1))
 
-# CLP - Analysis of matched set of survey data ----------------------------------------
+# MATCHING clp analysis ----------------------------------------
 
 m.data1.1 <- match.data(m.out1.1)
 
@@ -1265,217 +1306,137 @@ fit2.1 <- glm(Potamogeton_crispus/n_points_vegetated ~ clp_managed + clp_m_prior
 
 coeftest(fit2.1, vcov. = vcovCL, cluster = ~subclass)
 
+
+# MATCHING clp native prep -------------------------------------------------------
+
+#run matching for CLP:
+# data complete?
+
+surveys_mgmt_2012p[paste(DOW,SUBBASIN) %in% surveys_mgmt_2012p[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & yday(DATESURVEYSTART)>151, .N , .( year, clp_managed) ][order(year, clp_managed) ]
+surveys_mgmt_2012p[paste(DOW,SUBBASIN) %in% surveys_mgmt_2012p[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & yday(DATESURVEYSTART)>151, .N , .( lake_class, clp_managed)][order(lake_class, clp_managed)]
+
+
+
+
+
+m.out0.1.n <- matchit(clp_managed ~  clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
+                    data = surveys_mgmt_2012p[paste(DOW,SUBBASIN) %in% surveys_mgmt_2012p[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & yday(DATESURVEYSTART)>151 ],
+                    method = NULL, distance = "glm", link = "probit")
+
+
+# Checking balance prior to matching
+summary(m.out0.1.n)
+
+# 1:1 NN PS matching w/o replacement
+m.out1.1.n <- matchit(clp_managed ~  clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
+                    data = surveys_mgmt_2012p[paste(DOW,SUBBASIN) %in% surveys_mgmt_2012p[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & yday(DATESURVEYSTART)>151],
+                    method = "nearest", distance = "glm", link = "probit")
+
+m.out1.1.n
+
+# Checking balance after NN matching
+summary(m.out1.1.n, un = FALSE)
+
+plot(m.out1.1.n, type = "jitter", interactive = FALSE)
+
+plot(m.out1.1.n, type = "qq", interactive = FALSE,
+     which.xs = c("GDD_10C", "Secchi_m", "clp_m_priort"))
+plot(m.out1.1.n, type = "qq", interactive = FALSE,
+     which.xs = c("max_depth_dow", "roads_500m_mperha"))
+
+# Full matching on a probit PS
+m.out2.1.n <- matchit(clp_managed ~  clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), 
+                    data = surveys_mgmt_2012p[paste(DOW,SUBBASIN) %in% surveys_mgmt_2012p[Potamogeton_crispus>0, paste(DOW,SUBBASIN)] & yday(DATESURVEYSTART)>151],
+                    method = "full", distance = "glm", link = "probit")
+m.out2.1.n
+
+# Checking balance after full matching
+summary(m.out2.1.n, un = FALSE)
+
+plot(m.out2.1.n, type = "jitter", interactive = FALSE)
+
+plot(m.out2.1.n, type = "qq", interactive = FALSE,
+     which.xs = c("GDD_10C", "Secchi_m", "clp_m_priort"))
+plot(m.out2.1.n, type = "qq", interactive = FALSE,
+     which.xs = c("max_depth_dow", "roads_500m_mperha"))
+
+plot(summary(m.out2.1.n))
+
+# MATCHING clp native analysis ----------------------------------------
+
+m.data1.1.n <- match.data(m.out1.1.n)
+
+head(m.data1.1.n)
+
+#Test for effect on natives:
+
+fit1.1d <- lm(simpsons_div_nat ~ clp_managed + clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), data = m.data1.1.n, weights = weights)
+fit1.1r <- glm(nat_richness ~ clp_managed + clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), data = m.data1.1.n, weights = weights, family = poisson(link = "log"))
+fit1.1e <- glm(simpsons_div_nat/nat_richness ~ clp_managed + clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), data = m.data1.1.n, weights = weights, family = binomial(link = "logit"))
+
+coeftest(fit1.1d, vcov. = vcovCL, cluster = ~subclass)
+coeftest(fit1.1r, vcov. = vcovCL, cluster = ~subclass)
+coeftest(fit1.1e, vcov. = vcovCL, cluster = ~subclass)
+
+
+#and recall full match had better balance:
+
+m.data2.1.n <- match.data(m.out2.1.n)
+
+fit2.1d <- lm(simpsons_div_nat ~ clp_managed + clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), data = m.data2.1.n, weights = weights)
+fit2.1r <- glm(nat_richness ~ clp_managed + clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), data = m.data2.1.n, weights = weights, family = poisson(link = "log"))
+fit2.1e <- glm(simpsons_div_nat/nat_richness ~ clp_managed + clp_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class), data = m.data2.1.n, weights = weights, family = binomial(link = "logit"))
+
+coeftest(fit2.1d, vcov. = vcovCL, cluster = ~subclass)
+coeftest(fit2.1r, vcov. = vcovCL, cluster = ~subclass)
+coeftest(fit2.1e, vcov. = vcovCL, cluster = ~subclass)
+
+
+
+
+# MATCHING discussion -----------------------------------------------------
+
+
+
 #' Let's take stock of things now: 
-#' 1. For both species, matching got us to NULL diffs in trt v. untrt
-#' 1b. We chose covariates based on Mine and Shyam's work, and carried those
+#' - For both species, matching got us to NULL diffs in trt v. untrt
+#' - We chose covariates based on Mine and Shyam's work, and carried those
 #' through to both species. My work on CLP prob indicates we could include 
 #' winter severity in here.
-#' 2. I have tried some other things too, which don't change the results re: treatment effects:
-#'  - dropped lake class for both species
-#'  - added Date of survey for the CLP set (because of strong phenological effect)
-#'  - 
+#' - I have tried some other things too, which don't change the results re: treatment effects:
+#'  a. dropped lake class for both species
+#'  b. added Date of survey for the CLP set (because of strong phenological effect)
+#'  c.
 #' 
 #' 
-#' 
-#' 
-#' 7. Once we test the relationship of trt on invaders, we'll next want to ask
-#' what the relationship of trt on natives is --through the invaders. In order
-#' to do this, I imagined an instrumental variable approach. BUT it doesn't 
-#' seem like we have a decent instrument (if treatment doesn't reliably change
-#' the abundance of the invader, then there's no reason to believe it could
-#' change the invader abund enough to drive subsequent changes in the native
-#' community ). As such, we're just going to do something similar to the invader
-#' control matching work, but now asking if native diversity shows a treatment
-#' effect. 
-#' 
-#' For EWM this is pretty straighforward, the timing of the EWM surveys is great
-#' for capturing the native plant abundances. 
-#' 
-#' For CLP, however, we might need to be clever b/c of timing of surveys.
-#' 
-#' Our desired result: the Treatment effect on Native Communities (rich, div, even, mvAbund)
-#' 
-#' To get that, we can look at the raw effect:
-
-# does management help natives? ----------------------------------------
-names(surveys)
-
-ggplot(surveys[Myriophyllum_spicatum>0 & yday(DATESURVEYSTART)>151], aes(ewm_m, nat_richness ) ,)+
-  geom_point()+ geom_smooth(method = "lm")
-ggplot(surveys[Myriophyllum_spicatum>0 & yday(DATESURVEYSTART)>151], aes(ewm_m, simpsons_div_nat ) ,)+
-  geom_point()+ geom_smooth(method = "lm")
-ggplot(surveys[Myriophyllum_spicatum>0 & yday(DATESURVEYSTART)>151], aes(ewm_m, simpsons_div_nat/nat_richness ) ,)+
-  geom_point()+ geom_smooth(method = "lm")
-
-ggplot(surveys[yday(DATESURVEYSTART)>151], aes(clp_m, nat_richness ) ,)+
-  geom_point()+ geom_smooth(method = "lm")
-ggplot(surveys[yday(DATESURVEYSTART)>151], aes(clp_m, simpsons_div_nat ) ,)+
-  geom_point()+ geom_smooth(method = "lm")
-ggplot(surveys[yday(DATESURVEYSTART)>151], aes(clp_m, simpsons_div_nat/nat_richness ) ,)+
-  geom_point()+ geom_smooth(method = "lm")
-
-
-#' we can also take a simpler look at a within yr effect separated from previous
-#' treatment effects:
-#' 
-
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(ewm_managed, nat_richness ) ,)+
-  geom_boxplot()
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(ewm_managed, simpsons_div_nat ) ,)+
-  geom_boxplot()
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(ewm_managed, simpsons_div_nat/nat_richness ) ,)+
-  geom_boxplot()
-
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(clp_managed, nat_richness ) ,)+
-  geom_boxplot()
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(clp_managed, simpsons_div_nat ) ,)+
-  geom_boxplot()
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(clp_managed, simpsons_div_nat/nat_richness ) ,)+
-  geom_boxplot()
-
-ggplot(surveys[yday(DATESURVEYSTART) > 151, ], aes(ewm_m_priort, nat_richness ) ,)+
-  geom_point()
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(ewm_m_priort, simpsons_div_nat ) ,)+
-  geom_point()
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(ewm_m_priort, simpsons_div_nat/nat_richness ) ,)+
-  geom_point()
-
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(clp_m_priort, nat_richness ) ,)+
-  geom_point()
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(clp_m_priort, simpsons_div_nat ) ,)+
-  geom_point()
-ggplot(surveys[yday(DATESURVEYSTART) > 151], aes(clp_m_priort, simpsons_div_nat/nat_richness ) ,)+
-  geom_point()
 
 
 
+# Future work: MVABUND, improved parameterization,  -----------------------------------------------------
+
+
+#' ### IV
+#' We are particularly interested in
+#' any effect on natives mediated through the invaders (i.e., relief from comp).
+#' In order to do this, I imagined an instrumental variable approach. BUT it
+#' doesn't seem like we have a decent instrument (if treatment doesn't 
+#' meaningfully change the abundance of the invader, then there's no reason to
+#' believe it could change the invader abund enough to drive subsequent changes
+#' in the native community). As such, we're just did something similar
+#' to the invader control matching work, but now asking if native diversity
+#' shows a treatment effect.
+#' 
+#' ### MVABUND
+#' A useful next step would be to run a multivariate response model for each
+#' species' management. This could be a neat way to assess our data because the
+#' model would make no pre-assumptions about effects on the targeted invaders,
+#' but instead would simply ask if that species' abundance is diff between
+#' managed and unmanaged lakes. We would still have the endogenity problem, with
+#' management selection likeley happening based on species abunds 
+#' 
 
 
 
-
-
-names(summer_surveys)
-
-
-
-#' #how many CLP lake-years of data (note the NAs are ones where we cant reliably say clp is/is not there )
-#' summer_surveys[ , .N , SPRING_Potamogeton_crispus>0]
-#' 
-#' #how many EWM lake-years?
-#' summer_surveys[ , .N , Myriophyllum_spicatum>0]
-#' 
-#' #and whats the management breakdown?
-#' 
-#' summer_surveys[!is.na(SPRING_Potamogeton_crispus) , .(.N,mean(potcri_early_vegdfoc)) , clp_managed]
-#' 
-#' summer_surveys[ , .(.N,mean(myrspi_summer_vegdfoc)) , ewm_managed ]
-#' 
-#' #' These values highlight some of the big problems with the management data.
-#' #' 1. They're super shitty and we've retained barely a sliver of info showing
-#' #' which systems have been treated
-#' #' - I can work on this on my end, ensuring that we've maximized our data
-#' #' retention during the join to mgmt data
-#' #' - Part of this will just be a truth of trying to examine mgmt data.
-#' #' 2. We've got a system where lakes are selected for control because they have
-#' #' an overabundance of the invader. This creates an artificial sense that 
-#' #' abundances are HIGHER where the invader is being controlled. 
-#' #' 
-#' #' 
-#' #' 
-#' #'     
-#' 
-#'   #rrreal quick:
-#'   ggplot(summer_surveys, aes(potcri_early_vegdfoc, Secchi_m) , )+
-#'     geom_point( aes(color= clp_managed))+
-#'     geom_smooth(method = "lm")
-#'   
-#'   ggplot(summer_surveys, aes(jitter(myrspi_summer_vegdfoc), Secchi_m) , )+
-#'     geom_point( aes(color= ewm_managed), alpha = .1)+
-#'     geom_smooth(method = "lm")
-#'   
-#'   
-#'   
-#'   # add a CLP metric to summer surveys where CLP was measured during a reasonable time of year --------
-#' 
-#' surveys[ , DATESURVEYSTART := as.IDate(DATESURVEYSTART, format = "%m/%d/%Y" ) , ]
-#' 
-#' #put a CLP index into the summer surveys:
-#' early_clpsurveys <- surveys[month(DATESURVEYSTART) %in% c(3,4,5,6) , .(SURVEY_ID, DOW, year = year(DATESURVEYSTART), LAKE_NAME, SUBBASIN, Potamogeton_crispus,DATESURVEYSTART, n_points_vegetated, tot_n_samp)  , ]
-#' 
-#' early_clpsurveys[ , potcri_early_vegdfoc := Potamogeton_crispus/n_points_vegetated ]
-#' early_clpsurveys[is.na(potcri_early_vegdfoc), potcri_early_vegdfoc := 0] #here we can assume that the sampling was reasonable timing to find CLP had it been present
-#' early_clpsurveys[ ,.N , potcri_early_vegdfoc>0]
-#' 
-#' surveys[ , year := year(DATESURVEYSTART) , ]
-#' 
-#' #thin summer surveys to exclude pre july
-#' summer_surveys <- surveys[yday(DATESURVEYSTART) > 181  , , ]
-#' 
-#' #append early clp metrics to these summer surveys,:
-#' 
-#' summer_surveys[ , joindates := DATESURVEYSTART]
-#' early_clpsurveys[ , joindateE := DATESURVEYSTART]
-#' 
-#' 
-#' summer_surveys <- early_clpsurveys[summer_surveys, on = .(DOW, year, LAKE_NAME, SUBBASIN, joindateE < joindates), mult = "first" ]
-#' 
-#' names(summer_surveys)[names(summer_surveys) == "DATESURVEYSTART"] <- "SPRING_DATESURVEYSTART"
-#' names(summer_surveys)[names(summer_surveys) == "SURVEY_ID"] <- "SPRING_SURVEY_ID"
-#' names(summer_surveys)[names(summer_surveys) == "Potamogeton_crispus"] <- "SPRING_Potamogeton_crispus"
-#' names(summer_surveys)[names(summer_surveys) == "n_points_vegetated"] <- "SPRING_n_points_vegetated"
-#' names(summer_surveys)[names(summer_surveys) == "tot_n_samp"] <- "SPRING_tot_n_samp"
-#' 
-#' names(summer_surveys)[names(summer_surveys) == "i.DATESURVEYSTART"] <- "DATESURVEYSTART"
-#' names(summer_surveys)[names(summer_surveys) == "i.SURVEY_ID"] <- "SURVEY_ID"
-#' names(summer_surveys)[names(summer_surveys) == "i.Potamogeton_crispus"] <- "Potamogeton_crispus"
-#' names(summer_surveys)[names(summer_surveys) == "i.n_points_vegetated"] <- "n_points_vegetated"
-#' names(summer_surveys)[names(summer_surveys) == "i.tot_n_samp"] <- "tot_n_samp"
-#' 
-#' 
-#' 
-#' # Deprecated join method:
-#' # summer_surveys <- merge(summer_surveys, early_clpsurveys, by = c("DOW", "year", "LAKE_NAME", "SUBBASIN"), suffixes = c(".summer", ".spring"), all.x = T)
-#' 
-#' summer_surveys[ , hist(potcri_early_vegdfoc)]
-#' 
-#' 
-#' #verify that summer surveys have clp spring data (NA indicates no spring survey was conducted capable of evaluating CLP abundance):
-#' 
-#' summer_surveys[ , .N , SPRING_Potamogeton_crispus==0]
-#' 
-#' #summary stats
-#' 
-#' #' here an NA indicates a DOW that we don't have any control records for. later
-#' #' we'll make an assumption that no mgmt record means not managed.  
-#' summer_surveys[ , summary(clp_ntrtdates>0) ,] 
-#' summer_surveys[potcri_early_vegdfoc >0 , .N  , ]
-#' summer_surveys[potcri_early_vegdfoc > 0 , summary(clp_ntrtdates>0) ,]
-#' summer_surveys[is.na(potcri_early_vegdfoc) & clp_ntrtdates>0 , .(year, LAKE_NAME, DATASOURCE, DATESURVEYSTART )  ,]
-#' summer_surveys[ , summary(ewm_ntrtdates>0) ,]
-#' summer_surveys[Myriophyllum_spicatum > 0 , summary(ewm_ntrtdates>0) ,]
-#' 
-#' #' Here are some cases where our treatment records indicate that the lake was
-#' #' managed for EWM, but we don't have any observed EWM in the survey...
-#' #' Which seems very wrong. Same thing occurs in both EWM and CLP 
-#' #' 
-#' #' 
-#' summer_surveys[Myriophyllum_spicatum == 0 & ewm_ntrtdates>0 , .(year, LAKE_NAME, DOW, DATASOURCE, DATESURVEYSTART, SURVEY_ID)  ,]
-#' 
-#' summer_surveys[DOW %in% 
-#'                  summer_surveys[Myriophyllum_spicatum == 0 & ewm_ntrtdates>0 , .(year, LAKE_NAME, DOW, DATASOURCE, DATESURVEYSTART, SURVEY_ID)  ,][, DOW],
-#'                .(DOW, LAKE_NAME,DATESURVEYSTART, ewm_pretrt, Myriophyllum_spicatum, n_points_vegetated , ewm_ntrtdates), .(SURVEY_ID) ][order(DOW, DATESURVEYSTART)]
-#' 
-#' 
-#' summer_surveys[is.na(clp_ntrtdates), .N , potcri_early_vegdfoc>0 ]
-#' 
-#' summer_surveys[DOW %in% 
-#'                  summer_surveys[potcri_early_vegdfoc == 0 & clp_ntrtdates>0 , .(year, LAKE_NAME, DOW, DATASOURCE, DATESURVEYSTART, SURVEY_ID)  ,][, DOW],
-#'                .(DOW, LAKE_NAME, SUBBASIN, DATESURVEYSTART, clp_pretrt, potcri_early_vegdfoc, SPRING_DATESURVEYSTART, DATASOURCE , clp_ntrtdates), .(SURVEY_ID) ][order(DOW, DATESURVEYSTART)]
-#'   
-
-
-
-
-
+# Synthesize results ------------------------------------------------------
 
 
