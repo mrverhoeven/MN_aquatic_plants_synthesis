@@ -75,7 +75,8 @@ c <- fread(file = "data&scripts/data/input/Lakes_RoadDensity.csv")
 #' # Context for the work:
 #' ## Approaches to Analysis:
 #' 
-#' #### I. Space for time mashup 
+#' #### I. Naive Approach
+#'  A space for time mashup 
 #' 
 #' Large sample n, simple interpretation (seemingly, but has issue of reverse
 #' causality). 
@@ -86,7 +87,9 @@ c <- fread(file = "data&scripts/data/input/Lakes_RoadDensity.csv")
 #' models with lake ID as a random effect. We can try that again here, or we
 #' might consider other options.
 #' 
-#' #### II. In year, carryover, and historical control effects
+#' #### II. Management Focused approach
+#' 
+#' In year, carryover, and historical control effects
 #' 
 #' For each survey an associated value for historical control (m--an index of 
 #' mgmt = sum(1 / 1+ (current year - management year)) eg:
@@ -165,6 +168,7 @@ c <- fread(file = "data&scripts/data/input/Lakes_RoadDensity.csv")
 #' # Data Prep
 #' 
 #' 
+
 # data prep ---------------------------------------------------------------
 
 #clean up the management data: (assign zeros or NAs as appropriate)
@@ -267,9 +271,11 @@ surveys[ yday(DATESURVEYSTART)<181 & yday(DATESURVEYSTART)>151 & !is.na(DOW) ,
 
 
 # BACI clp in yr data prep -------------------------------------------------------
+
+
 #' # Analyses: 
 #' 
-#' ##IV. BACI
+#' ## IV. BACI
 #' 
 #' ### CLP - data prep
 #' 
@@ -416,7 +422,7 @@ clp_BACI_inyr[!is.na(dN) , .N , good_BACI]
 
 
 # BACI clp in yr viz & test ------------------------------------------
-#' ### CLP - invader abund - viz and test
+#' ### CLP - invader - viz and test
 
 
 ggplot(clp_BACI_inyr, aes(!is.na(trt_date), dN))+
@@ -437,7 +443,7 @@ clp_BACI_inyr[good_BACI == T | is.na(good_BACI) & !is.na(dN), .N , is.na(good_BA
 
 
 # BACI clp in yr natives --------------------------------------------------
-#' ### CLP - native response - viz and test
+#' ### CLP - native - viz and test
 
 ggplot(clp_BACI_inyr, aes(!is.na(trt_date), ddiv))+
   geom_boxplot()+
@@ -465,7 +471,7 @@ summary(BACI_c_nate)
 
 
 # BACI clp in yr underlying data ------------------------------------------
-
+#' ### CLP - data subset
 
 
 # here's the data underlying this analysis:
@@ -474,7 +480,7 @@ surveys[SURVEY_ID %in% clp_BACI_inyr[!is.na(dN) , SURVEY_ID , ] , .(SURVEY_ID, D
 surveys[SURVEY_ID %in% clp_BACI_inyr[!is.na(dN) , SURVEY_ID , ] , .(SURVEY_ID, DOW, LAKE_NAME, SUBBASIN, p_dow, year, DATASOURCE)  , ][clp_BACI_inyr[!is.na(dN) , .(SURVEY_ID,trt_date, dN, ddays, ddiv, drich, deven) , ], on = .(SURVEY_ID)][order(DOW,SUBBASIN, year)][ ,.N, .(LAKE_NAME, DOW, SUBBASIN)]
 
 # BACI clp in yr discussion --------------------------------------------------------------
-#' ### CLP within year effects
+#' ### CLP - discussion
 #' 
 #' From 3173 surveys, we have 969 that were collected pre-July
 #' From these, 258 surveys, or 129 lake years of data have more than one survey
@@ -488,7 +494,7 @@ surveys[SURVEY_ID %in% clp_BACI_inyr[!is.na(dN) , SURVEY_ID , ] , .(SURVEY_ID, D
 
 
 # BACI ewm in yr trt eff -------------------------------------------------------
-
+#' ### EWM - data prep
 
 surveys[year>2011 & yday(DATESURVEYSTART)>151 , .N , .(DOW, SUBBASIN, year)][N>1]
 
@@ -619,6 +625,7 @@ ewm_BACI_inyr[!is.na(dN) , .N , good_BACI]
 
 # BACI ewm in yr viz & test ------------------------------------------
 
+#' ### EWM - invader - viz and test
 
 
 ggplot(ewm_BACI_inyr, aes(!is.na(trt_date), dN))+
@@ -642,6 +649,7 @@ ewm_BACI_inyr[good_BACI == T | is.na(good_BACI) & !is.na(dN), .N , is.na(good_BA
 
 
 # BACI ewm in yr natives --------------------------------------------------
+#' ### EWM - native - viz and test
 
 
 ggplot(ewm_BACI_inyr, aes(!is.na(trt_date), ddiv))+
@@ -668,6 +676,7 @@ summary(BACI_e_nate)
 
 
 # BACI ewm in yr underlying data ------------------------------------------
+#' ### EWM - data subset
 
 # here's the data driving this model:
 surveys[SURVEY_ID %in% ewm_BACI_inyr[!is.na(dN) , SURVEY_ID , ] , .(SURVEY_ID, DOW, LAKE_NAME, SUBBASIN, p_dow, year, DATASOURCE)  , ][ewm_BACI_inyr[!is.na(dN) , .(SURVEY_ID,trt_date, dN, ddays,drich, deven, ddiv) , ], on = .(SURVEY_ID)][order(trt_date, DOW,SUBBASIN, year)]
@@ -676,7 +685,7 @@ surveys[SURVEY_ID %in% ewm_BACI_inyr[!is.na(dN) , SURVEY_ID , ] , .(SURVEY_ID, D
 
 # BACI ewm in yr discussion --------------------------------------------------------------
 
-#' ### EWM within year effects
+#' ### EWM - discussion
 #' 
 #' Much like clp, you don't have many cases where good data exist for a BACI
 #' analysis of within year management effects. In total, we've got 79 cases of 
@@ -688,7 +697,7 @@ surveys[SURVEY_ID %in% ewm_BACI_inyr[!is.na(dN) , SURVEY_ID , ] , .(SURVEY_ID, D
 
 
 # BACI clp cross yr data prep ---------------------------------------------------
-
+#' ### BACI Across Years Attempt
 
 surveys[ yday(DATESURVEYSTART)<181 , .N , .(DOW, SUBBASIN)][N>1]
 
@@ -753,7 +762,6 @@ summary(lm(data = clp_BACI_yrs[dyears==2], dN~!is.na(trt_date_last_y) ))
 clp_BACI_yrs[dyears==2, .N, .(!is.na(trt_date_last_y))]
 
 # BACI ewm cross yr data prep ---------------------------------------------------
-
 
 surveys[ yday(DATESURVEYSTART)>151 , .N , .(DOW, SUBBASIN)][N>1]
 
@@ -850,6 +858,12 @@ ewm_BACI_yrs[dyears==2, .N, .(!is.na(trt_date_last_y))]
 
 
 # NAIVE models viz and test----------------------------------------
+
+#' ## I. Naive
+#' 
+#' ### Visualize EWM
+
+
 #' does management reduce invaders? 
 #within year
 ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_managed, Myriophyllum_spicatum/n_points_vegetated ) ,)+
@@ -862,6 +876,8 @@ ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], 
   geom_boxplot()
 ggplot(surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0], aes(ewm_managed, simpsons_div_nat/nat_richness ) ,)+
   geom_boxplot()
+
+#' ### Model EWM
 
 NAIVE_ewm <- glm( Myriophyllum_spicatum/n_points_vegetated~ewm_managed,
                data =surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0],
@@ -886,6 +902,8 @@ surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0, .N, ewm_
 surveys_mgmt[Myriophyllum_spicatum>0 & year>2011 & ewm_pretrt_mod == 0, .N, .(DOW,SUBBASIN) ]
 
 
+#' ### Visualize CLP
+
 ggplot(surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_managed, Potamogeton_crispus/n_points_vegetated ) ,)+
   geom_boxplot()
 surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 , .N , clp_managed ]
@@ -896,6 +914,8 @@ ggplot(surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], a
   geom_boxplot()
 ggplot(surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ], aes(clp_managed, simpsons_div_nat/nat_richness ) ,)+
   geom_boxplot()
+
+#' ### Model CLP
 
 NAIVE_clp <- glm( Potamogeton_crispus/n_points_vegetated~clp_managed,
              data =surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0 ],
@@ -923,6 +943,8 @@ surveys_mgmt[Potamogeton_crispus>0 & year>2011 & clp_pretrt_mod == 0,  .N, .(DOW
 
 # NAIVE models discussion -------------------------------------------------
 
+
+#' ### Naive model Discussion
 # density plots might show where our problems may be arising
 
 #historical mgmt index
@@ -1004,10 +1026,12 @@ ggplot(surveys_mgmt[yday(DATESURVEYSTART) < 181 & yday(DATESURVEYSTART) > 151 & 
 
 # MGMT data prep ----------------------------------------------------------
 
+#' ## II. Management focused
+#' 
 #' now we want to estimate in yr, carryover, and historical trt effects
 #' 
 #' to do this we need to add some stuff to the surveys_mgmt data:
-#' 
+#' ### Data Prep & Viz
 
 names(surveys_mgmt)
 
@@ -1036,7 +1060,7 @@ summary(surveys_mgmt[ year > 2011 , .(clp_managed, clp_managed_last_y, clp_m_pri
 
 
 # MGMT clp viz and test -----------------------------------------------
-
+#' ### CLP - invader - viz and test
 
 #trim by year (where we know that we've got trt records)
 clp_set <- surveys_mgmt[ month(DATESURVEYSTART) %in% c(3:6) & year > 2011]
@@ -1073,7 +1097,7 @@ clp_set[clp_pretrt_mod == 0 , .N , clp_managed]
 clp_set[clp_pretrt_mod == 0 , .N , clp_managed_last_y]
 clp_set[clp_pretrt_mod == 0 , .N , clp_m_priort2>0]
 # MGMT ewm viz and test -----------------------------------------------
-
+#' ### EWM - invader - viz and test
 ewm_set <- surveys_mgmt[ year > 2011 & yday(DATESURVEYSTART) > 151, , ]
 
 ewm_set[ , ewm_vfoc := Myriophyllum_spicatum/n_points_vegetated , ] 
@@ -1100,6 +1124,8 @@ ewm_set[Myriophyllum_spicatum>0 & ewm_pretrt_mod==0 , .N , ewm_managed_last_y]
 ewm_set[Myriophyllum_spicatum>0 & ewm_pretrt_mod==0, .N , ewm_m_priort2>0]
 # MGMT clp native viz and test --------------------------------------------
 
+#' ### CLP - native- viz and test
+
 surveys_mgmt[year>2011 & yday(DATESURVEYSTART)>151, .N , .(clp_managed, clp_managed_last_y, mgmthist = clp_m_priort2==0) ][order(clp_managed, clp_managed_last_y)]
 
 surveys_mgmt[ , dowbasin := paste(DOW,SUBBASIN, sep = "_")]
@@ -1124,6 +1150,9 @@ summary(MGMT_c_nate)
 
 # MGMT ewm native viz and test --------------------------------------------
 
+
+#' ### EWM - native- viz and test
+
 ggplot(ewm_set, aes(simpsons_div_nat, ewm_managed))+
   geom_boxplot()
 ggplot(ewm_set, aes(nat_richness, ewm_managed))+
@@ -1142,6 +1171,8 @@ summary(MGMT_e_nate)
 
 # MATCHING discussion ----------------------------------------------------------------
 
+#' ## III. Matching
+#' 
 #' Alrighty... we can start to see why we might need causal inference methods in
 #' this analysis. A few interesting endogeneity problems exist here:
 #' 
@@ -1186,7 +1217,7 @@ summary(MGMT_e_nate)
 
 # MATCHING ewm prep -------------------------------------------------------
 
-
+#' ### EWM - prep & match
 # No matching; constructing a pre-match matchit object
 
 
@@ -1250,7 +1281,7 @@ plot(m.out2, type = "qq", interactive = FALSE,
 plot(summary(m.out2))
 
 # MATCHING ewm analysis ----------------------------------------
-
+#' ### EWM - invader- test
 m.data1 <- match.data(m.out1)
 
 head(m.data1)
@@ -1271,7 +1302,7 @@ fit2 <- glm(Myriophyllum_spicatum/n_points_vegetated ~ ewm_managed + ewm_m_prior
 coeftest(fit2, vcov. = vcovCL, cluster = ~subclass)
 
 # MATCHING ewm native analysis ----------------------------------------
-
+#' ### EWM - native - test
 #Test for effect on native div:
 
 fit1d <- lm(simpsons_div_nat ~ ewm_managed + ewm_m_priort + GDD_10C + max_depth_dow + Secchi_m + roads_500m_mperha + as.factor(lake_class)  , data = m.data1, weights = weights)
@@ -1297,7 +1328,10 @@ fit2e <- lm(simpsons_div_nat/nat_richness ~ ewm_managed + ewm_m_priort + GDD_10C
 
 
 # MATCHING clp prep -------------------------------------------------------
+  
+#' ### CLP - invader - prep & match
 
+  
 #run matching for CLP:
 # data complete?
 surveys_mgmt_2012p[  , .N , .( year, clp_managed) ][order(year)]
@@ -1350,6 +1384,7 @@ plot(m.out2.1, type = "qq", interactive = FALSE,
 plot(summary(m.out2.1))
 
 # MATCHING clp analysis ----------------------------------------
+#' ### CLP - invader - test
 
 m.data1.1 <- match.data(m.out1.1)
 
@@ -1371,6 +1406,7 @@ coeftest(fit2.1, vcov. = vcovCL, cluster = ~subclass)
 
 
 # MATCHING clp native prep -------------------------------------------------------
+#' ### CLP - native - prep & match
 
 #run matching for CLP:
 # data complete?
@@ -1426,6 +1462,7 @@ plot(m.out2.1.n, type = "qq", interactive = FALSE,
 plot(summary(m.out2.1.n))
 
 # MATCHING clp native analysis ----------------------------------------
+#' ### CLP - native - test
 
 m.data1.1.n <- match.data(m.out1.1.n)
 
@@ -1461,6 +1498,9 @@ coeftest(fit2.1e, vcov. = vcovCL, cluster = ~subclass)
 
 
 
+#' ### Matching discussion
+#'
+#'
 #' Let's take stock of things now: 
 #' - For both species, matching got us to NULL diffs in trt v. untrt
 #' - We chose covariates based on Mine and Shyam's work, and carried those
@@ -1475,33 +1515,12 @@ coeftest(fit2.1e, vcov. = vcovCL, cluster = ~subclass)
 
 
 
-# Future work: MVABUND, improved parameterization,  -----------------------------------------------------
-
-
-#' ### IV
-#' We are particularly interested in
-#' any effect on natives mediated through the invaders (i.e., relief from comp).
-#' In order to do this, I imagined an instrumental variable approach. BUT it
-#' doesn't seem like we have a decent instrument (if treatment doesn't 
-#' meaningfully change the abundance of the invader, then there's no reason to
-#' believe it could change the invader abund enough to drive subsequent changes
-#' in the native community). As such, we're just did something similar
-#' to the invader control matching work, but now asking if native diversity
-#' shows a treatment effect.
-#' 
-#' ### MVABUND
-#' A useful next step would be to run a multivariate response model for each
-#' species' management. This could be a neat way to assess our data because the
-#' model would make no pre-assumptions about effects on the targeted invaders,
-#' but instead would simply ask if that species' abundance is diff between
-#' managed and unmanaged lakes. We would still have the endogenity problem, with
-#' management selection likeley happening based on species abunds 
-#' 
 
 
 
 # Synthesize results ------------------------------------------------------
 
+#' # Tables and Figures
 
 
 modeled_effects <- rbindlist(

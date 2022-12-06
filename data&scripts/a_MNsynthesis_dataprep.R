@@ -867,7 +867,7 @@
   surveys[ , prop_veg := n_points_vegetated/tot_n_samp ,]
   
   #create a plant observation matrix (species abund by survey)
-  survey_species_matrix <- dcast(plants[!is.na(TAXON) , .("count" = length(unique(POINT_ID))) , .(SURVEY_ID,TAXON)], SURVEY_ID ~ TAXON, value.var = "count", fill = 0) #note that this line creates the matrix ONLY for surveys that had species obseravtions (~70 surveys had no species observed)
+  survey_species_matrix <- dcast(plants[!is.na(TAXON) , .("count" = length(unique(POINT_ID))) , .(SURVEY_ID,TAXON)], SURVEY_ID ~ TAXON, value.var = "count", fill = 0) #note that this line creates the matrix ONLY for surveys that had species observations (~70 surveys had no species observed)
 
   #diversity indicies:
   # species names:
@@ -1342,8 +1342,8 @@ point_depth <- ggplot(plants_rakeabund_wide, aes(DEPTH_FT*0.348, simpsons_div_na
 
 #Secchi
 setDT(surveys)
-nrow(surveys[!is.na(Secchi.m)])
-lake_secchi <- ggplot(surveys[!is.na(Secchi.m)], aes(Secchi.m, simpsons_div_nat)) +
+nrow(surveys[!is.na(Secchi_m)])
+lake_secchi <- ggplot(surveys[!is.na(Secchi_m)], aes(Secchi_m, simpsons_div_nat)) +
   geom_point()+
   theme_bw()+
   theme(axis.title.y = element_blank())+
@@ -1408,7 +1408,45 @@ ggarrange(point_depth, lake_secchi, wtrshd_area, nrow = 1, labels = c("Point-sca
     
     theme(axis.text.x = element_text(angle = 90, face = "italic", vjust = .5))
 
+# lake shapefile for ATLAS, etc -------------------------------------------
+
+plants[ ,  length(unique(TAXON)), .(DOW, SUBBASIN)]
+plants[ ,  length(unique(SURVEY_DATE)), .(DOW, SUBBASIN)]
   
+lakes <- plants[ ,  .("nyears" = length(unique(YEAR)),
+                      "nsurveys" = length(unique(SURVEY_DATE)),
+                      "surveylist" = toString(unique(SURVEY_DATE, na.rm = T)),
+                      "ntaxa" = length(unique(TAXON, na.rm = T)),
+                      "taxalist" = toString(unique(TAXON, na.rm = T)),
+                      "surveyorlist" = toString(unique(SURVEYOR, na.rm = T))), .(DOW, LAKE_NAME ,SUBBASIN, order_ID)]
+
+
+lakes[pwi_l, on = .(order_ID), geometry := geometry]
+lakes[ ,surveylist := as.character(surveylist)]
+
+lakes <- st_as_sf(lakes)
+lakes <- st_cast(lakes, "MULTIPOLYGON")
+
+ggplot(data = lakes, aes(geometry=geometry))+
+  geom_sf(alpha = .5,  color = "blue")
+
+summary(lakes)
+str(pwi_l)
+
+st_write(nc, "nc.shp")
+
+
+st_crs(lakes)
+
+
+sf::st_write(lakes, "data/output/lakes_summ.csv")
+
+saveRDS(lakes, "data&scripts/data/output/lakes_summ.rds")
+
+
+head(plants[, lapply(.SD , function(x) toString(unique(TAXON))), by = .(DOW, LAKE_NAME ,SUBBASIN, order_ID)])
+
+  a <- plants[, .(taxalist = toString(unique(TAXON, na.rm = T))), by = .(DOW, LAKE_NAME ,SUBBASIN)]
 
 # workspace cleanup -------------------------------------------------------
 
