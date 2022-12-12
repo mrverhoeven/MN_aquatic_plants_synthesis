@@ -866,6 +866,7 @@
   surveys <- merge(surveys,plants[!is.na(TAXON), .(n_points_vegetated=length(unique(POINT_ID))) , SURVEY_ID ], by = "SURVEY_ID", all.x = TRUE)[is.na(n_points_vegetated), n_points_vegetated := 0 ]
   surveys[ , prop_veg := n_points_vegetated/tot_n_samp ,]
   
+  
   #create a plant observation matrix (species abund by survey)
   survey_species_matrix <- dcast(plants[!is.na(TAXON) , .("count" = length(unique(POINT_ID))) , .(SURVEY_ID,TAXON)], SURVEY_ID ~ TAXON, value.var = "count", fill = 0) #note that this line creates the matrix ONLY for surveys that had species observations (~70 surveys had no species observed)
 
@@ -894,7 +895,11 @@
   surveys <- surveys[plants[ !is.na(DEPTH_FT), .("IQR_depth_surveyed" = IQR(DEPTH_FT)) , SURVEY_ID], on = "SURVEY_ID" , ]
   
   #vegetated depths data
-  #max depth vegetated:
+  #max depth vegetated within survey:
+  
+  #some of these might warrant removal, depending on whats being done with the data
+  plants[NO_VEG_FOUND == F & DEPTH_FT>50, length(POINT_ID) ,  .(DATASOURCE, DOW, SUBBASIN, DATESURVEYSTART, LAKE_NAME)]
+  
   plants[ NO_VEG_FOUND == FALSE , .("max_depth_vegetated" = max(DEPTH_FT)) , SURVEY_ID]
   surveys <- merge( surveys , plants[ NO_VEG_FOUND == FALSE , .("max_depth_vegetated" = max(DEPTH_FT, na.rm = T)) , SURVEY_ID] , by = "SURVEY_ID" , all.x =TRUE )
   #other depth vegetated stats:
@@ -933,8 +938,21 @@
 
 #merge in the geodata + lake data
   surveys <- pwi_l[surveys, on = .(order_ID), mult = "first" ]  
-
-
+  
+  
+  # n samples within historical max depth
+  
+  surveys <- merge(surveys,plants[!is.na(TAXON), .(alltime_maxvegdep = max(DEPTH_FT)) , .(DOW, SUBBASIN) ], by = c("DOW", "SUBBASIN"), all.x = TRUE) [is.na(alltime_maxvegdep), alltime_maxvegdep := 0  ]
+  summary(surveys$alltime_maxvegdep)
+  surveys[ , hist(alltime_maxvegdep) , ]
+  
+  plants[!is.na(TAXON), "alltime_maxvegdep" := max(DEPTH_FT) , .(DOW, SUBBASIN) ][is.na(alltime_maxvegdep), alltime_maxvegdep := 0  ]
+  
+  
+  
+  # n_points within all time max vegetated depth
+  surveys <- merge(surveys,plants[DEPTH_FT <= alltime_maxvegdep, .(alltime_maxvegdep_n_samp = length(unique(POINT_ID))) , SURVEY_ID ], by = "SURVEY_ID", all.x = TRUE)[is.na(alltime_maxvegdep_n_samp), alltime_maxvegdep_n_samp := 0 ]
+  
 # species pools -----------------------------------------------------------
 
 #' We have super awesome species pool data because we've got species abunds
@@ -1235,10 +1253,10 @@
    
    # figure construction -----------------------------------------------------
    #Figure 1
-   tiff("Fig1.tiff", res = 600, width = 9, height = 12, units = "in", compression = "lzw")
-   plot(study_map) # Make plot
-   dev.off()
-   
+   # tiff("Fig1.tiff", res = 600, width = 9, height = 12, units = "in", compression = "lzw")
+   # plot(study_map) # Make plot
+   # dev.off()
+   # 
    
    
 
@@ -1289,7 +1307,7 @@
    
    #fig 1 
    
-   ggarrange(study_map, temporal_accumulation, nrow = 1)
+   # ggarrange(study_map, temporal_accumulation, nrow = 1)
    
 
 # species abundance distributions -----------------------------------------
@@ -1439,9 +1457,9 @@ st_write(nc, "nc.shp")
 st_crs(lakes)
 
 
-sf::st_write(lakes, "data/output/lakes_summ.csv")
-
-saveRDS(lakes, "data&scripts/data/output/lakes_summ.rds")
+# sf::st_write(lakes, "data/output/lakes_summ.csv")
+# 
+# saveRDS(lakes, "data&scripts/data/output/lakes_summ.rds")
 
 
 head(plants[, lapply(.SD , function(x) toString(unique(TAXON))), by = .(DOW, LAKE_NAME ,SUBBASIN, order_ID)])

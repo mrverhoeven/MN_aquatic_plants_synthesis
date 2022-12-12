@@ -27,6 +27,6 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 *.Rproj
-
 *figs/
 *data/
+synthesis_script_datasets.Rdata

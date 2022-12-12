@@ -135,9 +135,10 @@ source(file = "data&scripts/b1_community_assy_analysis.R") # will load and clean
 #' 
 
 #put a CLP index into the peak surveys:
-early_clpsurveys <- surveys[month(DATESURVEYSTART) %in% c(3,4,5,6) , .(SURVEY_ID, DOW, year = year(DATESURVEYSTART), LAKE_NAME, SUBBASIN, Potamogeton_crispus,DATESURVEYSTART, n_points_vegetated, tot_n_samp)  , ]
+early_clpsurveys <- surveys[month(DATESURVEYSTART) %in% c(3,4,5,6) , .(SURVEY_ID, DOW, year = year(DATESURVEYSTART), LAKE_NAME, SUBBASIN, Potamogeton_crispus,DATESURVEYSTART, n_points_vegetated, tot_n_samp, alltime_maxvegdep_n_samp)  , ]
 
 early_clpsurveys[ , potcri_early_vegdfoc := Potamogeton_crispus/n_points_vegetated ]
+early_clpsurveys[ , potcri_early_atmdfoc := Potamogeton_crispus/alltime_maxvegdep_n_samp ]
 early_clpsurveys[is.na(potcri_early_vegdfoc), potcri_early_vegdfoc := 0]
 early_clpsurveys[ ,.N , potcri_early_vegdfoc>0]
 
@@ -158,15 +159,18 @@ names(summer_surveys)[names(summer_surveys) == "DATESURVEYSTART"] <- "SPRING_DAT
 names(summer_surveys)[names(summer_surveys) == "SURVEY_ID"] <- "SPRING_SURVEY_ID"
 names(summer_surveys)[names(summer_surveys) == "Potamogeton_crispus"] <- "SPRING_Potamogeton_crispus"
 names(summer_surveys)[names(summer_surveys) == "n_points_vegetated"] <- "SPRING_n_points_vegetated"
+names(summer_surveys)[names(summer_surveys) == "alltime_maxvegdep_n_samp"] <- "SPRING_alltime_maxvegdep_n_samp"
 names(summer_surveys)[names(summer_surveys) == "tot_n_samp"] <- "SPRING_tot_n_samp"
 
 names(summer_surveys)[names(summer_surveys) == "i.DATESURVEYSTART"] <- "DATESURVEYSTART"
 names(summer_surveys)[names(summer_surveys) == "i.SURVEY_ID"] <- "SURVEY_ID"
 names(summer_surveys)[names(summer_surveys) == "i.Potamogeton_crispus"] <- "Potamogeton_crispus"
 names(summer_surveys)[names(summer_surveys) == "i.n_points_vegetated"] <- "n_points_vegetated"
+names(summer_surveys)[names(summer_surveys) == "i.alltime_maxvegdep_n_samp"] <- "alltime_maxvegdep_n_samp"
 names(summer_surveys)[names(summer_surveys) == "i.tot_n_samp"] <- "tot_n_samp"
 
 summer_surveys[ , hist(potcri_early_vegdfoc)]
+summer_surveys[ , hist(potcri_early_atmdfoc)]
   
 summer_surveys[ , .N , SPRING_Potamogeton_crispus==0]
 
@@ -260,13 +264,23 @@ summer_surveys[is.na(clp_targeted), .N , potcri_early_vegdfoc>0 ]
 
 # visualize "effects" at lake level
 summer_surveys[, myrspi_summer_vegdfoc := Myriophyllum_spicatum/n_points_vegetated]
+summer_surveys[, myrspi_summer_atmdfoc := Myriophyllum_spicatum/alltime_maxvegdep_n_samp]
+
+
 summer_surveys[is.na(myrspi_summer_vegdfoc) , myrspi_summer_vegdfoc := 0 , ]
+summer_surveys[is.na(myrspi_summer_atmdfoc) , myrspi_summer_atmdfoc := 0 , ]
+
 
 summer_surveys[ , .N , n_points_vegetated>0 ]
 summer_surveys[ , .N , myrspi_summer_vegdfoc>0]
 
+
 summer_surveys[, potcri_summer_vegdfoc := Potamogeton_crispus/n_points_vegetated]
+summer_surveys[, potcri_summer_atmdfoc := Potamogeton_crispus/alltime_maxvegdep_n_samp]
+               
 summer_surveys[is.na(potcri_summer_vegdfoc) , potcri_summer_vegdfoc := 0 , ]
+summer_surveys[is.na(potcri_summer_atmdfoc) , potcri_summer_atmdfoc := 0 , ]
+
 
 # native metrics ----------------------------------------------------------
 #' ## Native Response Metrics
