@@ -43,6 +43,8 @@ grants_CLP <- fread("data&scripts/data/input/management_data/DNR grant treatment
 surveys2 <- fread("data&scripts/data/input/management_data/APM Survey Data to 2015 (4).csv")
 surveys1 <- fread("data&scripts/data/input/management_data/APMsurveysMPARS.csv")
 
+## OR load(file = "data&scripts/data/output/data_for_c1script.RData")
+
 
 # review whats here: ------------------------------------------------------
 
