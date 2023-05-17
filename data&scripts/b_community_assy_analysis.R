@@ -281,6 +281,12 @@ summer_surveys[, potcri_summer_atmdfoc := Potamogeton_crispus/alltime_maxvegdep_
 summer_surveys[is.na(potcri_summer_vegdfoc) , potcri_summer_vegdfoc := 0 , ]
 summer_surveys[is.na(potcri_summer_atmdfoc) , potcri_summer_atmdfoc := 0 , ]
 
+summer_surveys[ , hist(potcri_early_atmdfoc) , ]
+summer_surveys[ , hist(potcri_early_vegdfoc) , ]
+summer_surveys[ , hist(myrspi_summer_atmdfoc) , ]
+summer_surveys[ , hist(myrspi_summer_vegdfoc) , ]
+
+
 
 # native metrics ----------------------------------------------------------
 #' ## Native Response Metrics
@@ -450,20 +456,26 @@ boxps <- ggarrange(box1, ggarrange(box2, box3, ncol = 1,
 # abundance lake scale regressions ----------------------------------------
 
 
-legend_colors <- c("potcri_early_vegdfoc" = "blue", "myrspi_summer_vegdfoc" = "red")
+legend_colors <- c("potcri_early_atmdfoc" = "blue", "myrspi_summer_atmdfoc" = "red")
 INV_ENSpie <- ggplot()+
-  geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
-             aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
+  geom_point(data = summer_surveys[myrspi_summer_atmdfoc > 0  ],
+             aes(myrspi_summer_atmdfoc, simpsons_div_nat, color = "myrspi_summer_atmdfoc"),
              alpha = 0.1)+
-  geom_point(data = summer_surveys[potcri_early_vegdfoc > 0],
-             aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_vegdfoc"),
+  geom_point(data = summer_surveys[potcri_early_atmdfoc > 0],
+             aes(potcri_early_atmdfoc, simpsons_div_nat, color = "potcri_early_atmdfoc"),
              alpha = 0.1)+
+  geom_smooth(data = summer_surveys[potcri_early_atmdfoc > 0 ],
+              aes(potcri_early_atmdfoc, simpsons_div_nat, color = "potcri_early_atmdfoc"),
+              method = "loess", lty = 2, se = F)+
+  geom_smooth(data = summer_surveys[myrspi_summer_atmdfoc > 0  ],
+              aes(myrspi_summer_atmdfoc, simpsons_div_nat, color = "myrspi_summer_atmdfoc"),
+              method = "loess", lty = 2, se = F)+
   geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 ],
-              aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_vegdfoc"),
-              method = "loess", lty = 2, se = F)+
+              aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_atmdfoc"),
+              method = "loess", lty = 1, se = F)+
   geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
-              aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
-              method = "loess", lty = 2, se = F)+
+              aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_atmdfoc"),
+              method = "loess", lty = 1, se = F)+
   xlab("Invader Lakewide Prevalence")+
   ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
   ggtitle("INVADED LAKE SURVEYS")+
@@ -475,18 +487,24 @@ INV_ENSpie <- ggplot()+
 
 
 INV_richness <- ggplot()+
-  geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 ],
-             aes(potcri_early_vegdfoc, nat_richness),
+  geom_point(data = summer_surveys[potcri_early_atmdfoc > 0 ],
+             aes(potcri_early_atmdfoc, nat_richness),
              alpha = 0.1, color = "red")+
-  geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
-             aes(myrspi_summer_vegdfoc, nat_richness),
+  geom_point(data = summer_surveys[myrspi_summer_atmdfoc > 0  ],
+             aes(myrspi_summer_atmdfoc, nat_richness),
              alpha = 0.1, color = "blue")+
+  geom_smooth(data = summer_surveys[potcri_early_atmdfoc > 0 ],
+              aes(potcri_early_atmdfoc, nat_richness),
+              method = "loess", color = "red", lty = 2, se = F)+
+  geom_smooth(data = summer_surveys[myrspi_summer_atmdfoc > 0  ],
+              aes(myrspi_summer_atmdfoc, nat_richness),
+              method = "loess", color = "blue", lty = 2, se = F)+
   geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 ],
               aes(potcri_early_vegdfoc, nat_richness),
-              method = "loess", color = "red", lty = 2, se = F)+
+              method = "loess", color = "black", lty = 1, se = F)+
   geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
               aes(myrspi_summer_vegdfoc, nat_richness),
-              method = "loess", color = "blue", lty = 2, se = F)+
+              method = "loess", color = "black", lty = 1, se = F)+
   xlab(NULL)+
   ylab("Richness")+
   ggtitle("")+
@@ -494,17 +512,17 @@ INV_richness <- ggplot()+
   theme(axis.text.y.left = element_text(angle = 90))
 
 INV_evenness <- ggplot()+
-  geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-             aes(potcri_early_vegdfoc, simpsons_div_nat/nat_richness),
+  geom_point(data = summer_surveys[potcri_early_atmdfoc > 0 & is.na(clp_targeted)],
+             aes(potcri_early_atmdfoc, simpsons_div_nat/nat_richness),
              alpha = 0.1, color = "red")+
-  geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-             aes(myrspi_summer_vegdfoc, simpsons_div_nat/nat_richness),
+  geom_point(data = summer_surveys[myrspi_summer_atmdfoc > 0 & is.na(ewm_targeted) ],
+             aes(myrspi_summer_atmdfoc, simpsons_div_nat/nat_richness),
              alpha = 0.1, color = "blue")+
-  geom_smooth(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-              aes(potcri_early_vegdfoc, simpsons_div_nat/nat_richness),
+  geom_smooth(data = summer_surveys[potcri_early_atmdfoc > 0 & is.na(clp_targeted)],
+              aes(potcri_early_atmdfoc, simpsons_div_nat/nat_richness),
               method = "loess", color = "red", lty = 2, se =F)+
-  geom_smooth(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-              aes(myrspi_summer_vegdfoc, simpsons_div_nat/nat_richness),
+  geom_smooth(data = summer_surveys[myrspi_summer_atmdfoc > 0 & is.na(ewm_targeted) ],
+              aes(myrspi_summer_atmdfoc, simpsons_div_nat/nat_richness),
               method = "loess", color = "blue", lty = 2, se =F)+
   xlab("Invader Lakewide Prevalence")+
   ylab("Evenness")+
@@ -547,53 +565,53 @@ summer_surveys[ ,summary(dowlknum)]
 summer_surveys[ , DOW := as.factor(DOW) ,]
 
 #Diversity
-D_pa_ewm_lake <- lmer(simpsons_div_nat ~ (myrspi_summer_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys)
+D_pa_ewm_lake <- lmer(simpsons_div_nat ~ (myrspi_summer_atmdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys)
 summary(D_pa_ewm_lake)
 
 D_pa_clp_lake <- lmer(simpsons_div_nat ~ (potcri_early_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys)
 summary(D_pa_clp_lake)
 
 #Richness
-R_pa_ewm_lake <- glmer(nat_richness ~ (myrspi_summer_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = poisson())
+R_pa_ewm_lake <- glmer(nat_richness ~ (myrspi_summer_atmdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = poisson())
 summary(R_pa_ewm_lake)
 
-R_pa_clp_lake <- glmer(nat_richness ~ (potcri_early_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = poisson())
+R_pa_clp_lake <- glmer(nat_richness ~ (potcri_early_atmdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = poisson())
 summary(R_pa_clp_lake)
 
 #Evenness
-E_pa_ewm_lake <- glmer(nat_evenness ~ (myrspi_summer_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = binomial())
+E_pa_ewm_lake <- glmer(nat_evenness ~ (myrspi_summer_atmdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = binomial())
 summary(E_pa_ewm_lake)
 
-E_pa_clp_lake <- glmer(nat_evenness ~ (potcri_early_vegdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = binomial())
+E_pa_clp_lake <- glmer(nat_evenness ~ (potcri_early_atmdfoc>0) + (1|DOW) + (1|year),   data = summer_surveys, family = binomial())
 summary(E_pa_clp_lake)
 
 # ABUNDANCE 
 #diversity
-EWMabund_nat_lake_ENSpie <- lmer(simpsons_div_nat~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0] )
+EWMabund_nat_lake_ENSpie <- lmer(simpsons_div_nat~myrspi_summer_atmdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_atmdfoc > 0] )
 summary(EWMabund_nat_lake_ENSpie)
 plot(EWMabund_nat_lake_ENSpie)
 
-CLPabund_nat_lake_ENSpie <- lmer(simpsons_div_nat~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)])
+CLPabund_nat_lake_ENSpie <- lmer(simpsons_div_nat~potcri_early_atmdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 & !is.na(Secchi_m)])
 summary(CLPabund_nat_lake_ENSpie)
 plot(CLPabund_nat_lake_ENSpie)
 
 #Richness
-EWMabund_nat_lake_richness <- glmer(nat_richness~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 ], family = poisson())
+EWMabund_nat_lake_richness <- glmer(nat_richness~myrspi_summer_atmdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_atmdfoc > 0 ], family = poisson())
 summary(EWMabund_nat_lake_richness)
 plot(EWMabund_nat_lake_richness)
 
-CLPabund_nat_lake_richness <- glmer(nat_richness~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 ] , family = poisson())
+CLPabund_nat_lake_richness <- glmer(nat_richness~potcri_early_atmdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 ] , family = poisson())
 summary(CLPabund_nat_lake_richness)
 plot(CLPabund_nat_lake_richness)
 
 # Evenness
 #EWM Abund
-EWMabund_nat_lake_evenness<- glmer(nat_evenness~myrspi_summer_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0], family = binomial())
+EWMabund_nat_lake_evenness<- glmer(nat_evenness~myrspi_summer_atmdfoc+ (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_atmdfoc > 0], family = binomial())
 summary(EWMabund_nat_lake_evenness)
 plot(EWMabund_nat_lake_evenness)
 
 #CLP Abund
-CLPabund_nat_lake_evenness <- glmer(nat_evenness~potcri_early_vegdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 ], family = binomial())
+CLPabund_nat_lake_evenness <- glmer(nat_evenness~potcri_early_atmdfoc+ (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 ], family = binomial())
 summary(CLPabund_nat_lake_evenness)
 plot(CLPabund_nat_lake_evenness)
 
@@ -653,13 +671,13 @@ inv_mods[response == "Div", confint_upr := Estimate + 1.96*`Std. Error`]
 
 #new data spanning abund to predict models from
 # EWM
-newdat1<-data.frame(myrspi_summer_vegdfoc = seq(min(summer_surveys[myrspi_summer_vegdfoc > 0 , myrspi_summer_vegdfoc]), max(summer_surveys[myrspi_summer_vegdfoc > 0 , myrspi_summer_vegdfoc]), length.out = nrow(summer_surveys[myrspi_summer_vegdfoc > 0 ])),
-                    year = summer_surveys[myrspi_summer_vegdfoc > 0 , year],
-                    DOW = summer_surveys[myrspi_summer_vegdfoc > 0 , DOW])
+newdat1<-data.frame(myrspi_summer_atmdfoc = seq(min(summer_surveys[myrspi_summer_atmdfoc > 0 , myrspi_summer_atmdfoc]), max(summer_surveys[myrspi_summer_atmdfoc > 0 , myrspi_summer_atmdfoc]), length.out = nrow(summer_surveys[myrspi_summer_atmdfoc > 0 ])),
+                    year = summer_surveys[myrspi_summer_atmdfoc > 0 , year],
+                    DOW = summer_surveys[myrspi_summer_atmdfoc > 0 , DOW])
 # CLP
-newdat2<-data.frame(potcri_early_vegdfoc = seq(min(summer_surveys[potcri_early_vegdfoc > 0 , potcri_early_vegdfoc]), max(summer_surveys[potcri_early_vegdfoc > 0 , potcri_early_vegdfoc]), length.out = nrow(summer_surveys[potcri_early_vegdfoc > 0 ])),
-                    year = summer_surveys[potcri_early_vegdfoc > 0 , year],
-                    DOW = summer_surveys[potcri_early_vegdfoc > 0 , DOW])
+newdat2<-data.frame(potcri_early_atmdfoc = seq(min(summer_surveys[potcri_early_atmdfoc > 0 , potcri_early_atmdfoc]), max(summer_surveys[potcri_early_atmdfoc > 0 , potcri_early_atmdfoc]), length.out = nrow(summer_surveys[potcri_early_atmdfoc > 0 ])),
+                    year = summer_surveys[potcri_early_atmdfoc > 0 , year],
+                    DOW = summer_surveys[potcri_early_atmdfoc > 0 , DOW])
 
 # ENSPie ~ Abund: 
 #EWM
@@ -691,20 +709,20 @@ newdat1$fittedE <- plogis(predict(EWMabund_nat_lake_evenness, newdat1, re.form =
 newdat2$fittedE <- plogis(predict(CLPabund_nat_lake_evenness, newdat2, re.form = NA))
   
 #Diversity Plot
-legend_colors <- c("potcri_early_vegdfoc" = "blue", "myrspi_summer_vegdfoc" = "red")
+legend_colors <- c("potcri_early_atmdfoc" = "blue", "myrspi_summer_atmdfoc" = "red")
 INV_ENSpie <- ggplot()+
-    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 ],
-               aes(potcri_early_vegdfoc, simpsons_div_nat, color = "potcri_early_vegdfoc"),
+    geom_point(data = summer_surveys[potcri_early_atmdfoc > 0 ],
+               aes(potcri_early_atmdfoc, simpsons_div_nat, color = "potcri_early_atmdfoc"),
                alpha = 0.2)+
-    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-               aes(myrspi_summer_vegdfoc, simpsons_div_nat, color = "myrspi_summer_vegdfoc"),
+    geom_point(data = summer_surveys[myrspi_summer_atmdfoc > 0 & is.na(ewm_targeted) ],
+               aes(myrspi_summer_atmdfoc, simpsons_div_nat, color = "myrspi_summer_atmdfoc"),
                alpha = 0.2)+
     geom_line(data = newdat1, 
-              aes(myrspi_summer_vegdfoc,fittedD), color = "red", size = 1.5)+
-    # geom_ribbon(data = newdat1, aes(x = myrspi_summer_vegdfoc, ymin=lci, ymax=uci), color = NA , fill = "red", alpha = .15)+
+              aes(myrspi_summer_atmdfoc,fittedD), color = "red", size = 1.5)+
+    # geom_ribbon(data = newdat1, aes(x = myrspi_summer_atmdfoc, ymin=lci, ymax=uci), color = NA , fill = "red", alpha = .15)+
     geom_line(data = newdat2,
-              aes(potcri_early_vegdfoc,fittedD), color = "blue", size = 1.5, lty = 2)+
-    # geom_ribbon(data = newdat2, aes(x = potcri_early_vegdfoc, ymin=lwr, ymax=upr), color = NA , fill = "blue", alpha = .15)+
+              aes(potcri_early_atmdfoc,fittedD), color = "blue", size = 1.5, lty = 2)+
+    # geom_ribbon(data = newdat2, aes(x = potcri_early_atmdfoc, ymin=lwr, ymax=upr), color = NA , fill = "blue", alpha = .15)+
     xlab("Invader lakewide prevalence")+
     ylab(bquote('Native diversity ('~ENS[PIE]~')'))+
     ggtitle("Invaded Lake Surveys")+
@@ -715,16 +733,16 @@ INV_ENSpie <- ggplot()+
   
 #Richness plot:
 INV_richness <- ggplot()+
-    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 ],
-               aes(potcri_early_vegdfoc, nat_richness),
+    geom_point(data = summer_surveys[potcri_early_atmdfoc > 0 ],
+               aes(potcri_early_atmdfoc, nat_richness),
                alpha = 0.2, color = "red")+
-    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0  ],
-               aes(myrspi_summer_vegdfoc, nat_richness),
+    geom_point(data = summer_surveys[myrspi_summer_atmdfoc > 0  ],
+               aes(myrspi_summer_atmdfoc, nat_richness),
                alpha = 0.2, color = "blue")+
     geom_line(data = newdat1, 
-              aes(myrspi_summer_vegdfoc,fittedR), color = "red", size = 1.5)+
+              aes(myrspi_summer_atmdfoc,fittedR), color = "red", size = 1.5)+
     geom_line(data = newdat2, 
-              aes(potcri_early_vegdfoc,fittedR), color = "blue", size = 1.5)+
+              aes(potcri_early_atmdfoc,fittedR), color = "blue", size = 1.5)+
     xlab(NULL)+
     ylab("Richness")+
     ggtitle("")+
@@ -732,16 +750,16 @@ INV_richness <- ggplot()+
     theme(axis.text.y.left = element_text(angle = 90))
   
 INV_evenness <- ggplot()+
-    geom_point(data = summer_surveys[potcri_early_vegdfoc > 0 & is.na(clp_targeted)],
-               aes(potcri_early_vegdfoc, simpsons_div_nat/nat_richness),
+    geom_point(data = summer_surveys[potcri_early_atmdfoc > 0 & is.na(clp_targeted)],
+               aes(potcri_early_atmdfoc, simpsons_div_nat/nat_richness),
                alpha = 0.2, color = "red")+
-    geom_point(data = summer_surveys[myrspi_summer_vegdfoc > 0 & is.na(ewm_targeted) ],
-               aes(myrspi_summer_vegdfoc, simpsons_div_nat/nat_richness),
+    geom_point(data = summer_surveys[myrspi_summer_atmdfoc > 0 & is.na(ewm_targeted) ],
+               aes(myrspi_summer_atmdfoc, simpsons_div_nat/nat_richness),
                alpha = 0.2, color = "blue")+
     geom_line(data = newdat1, 
-              aes(myrspi_summer_vegdfoc,fittedE), color = "red", size = 1.5, lty = 2)+
+              aes(myrspi_summer_atmdfoc,fittedE), color = "red", size = 1.5, lty = 2)+
     geom_line(data = newdat2, 
-              aes(potcri_early_vegdfoc,fittedE), color = "blue", size = 1.5)+
+              aes(potcri_early_atmdfoc,fittedE), color = "blue", size = 1.5)+
     xlab("Invader lakewide prevalence")+
     ylab("Evenness")+
     theme_bw()+
@@ -1275,13 +1293,13 @@ ggarrange(point_boxpsp,point_abunds, ncol = 1)
 
 #whats the relationship to clarity look like in uninvaded lakes
 
-summer_surveys[ , invaded := (potcri_early_vegdfoc > 0 | myrspi_summer_vegdfoc > 0)|
-                  (is.na(potcri_early_vegdfoc) & myrspi_summer_vegdfoc > 0),]
-summer_surveys[ is.na(potcri_early_vegdfoc) , invaded := myrspi_summer_vegdfoc > 0 ,]
+summer_surveys[ , invaded := (potcri_early_atmdfoc > 0 | myrspi_summer_atmdfoc > 0)|
+                  (is.na(potcri_early_atmdfoc) & myrspi_summer_atmdfoc > 0),]
+summer_surveys[ is.na(potcri_early_atmdfoc) , invaded := myrspi_summer_atmdfoc > 0 ,]
 #check work:
-summer_surveys[ , .N , .(myrspi_summer_vegdfoc>0,potcri_early_vegdfoc>0, invaded ) ]
+summer_surveys[ , .N , .(myrspi_summer_atmdfoc>0,potcri_early_atmdfoc>0, invaded ) ]
 
-ggpairs(summer_surveys[invaded == T , .(Secchi_m, potcri_early_vegdfoc, myrspi_summer_vegdfoc, simpsons_div_nat, nat_richness,nat_evenness)], lower = list(continuous = "smooth"), aes(fill = NULL))
+ggpairs(summer_surveys[invaded == T , .(Secchi_m, potcri_early_atmdfoc, myrspi_summer_atmdfoc, simpsons_div_nat, nat_richness,nat_evenness)], lower = list(continuous = "smooth"), aes(fill = NULL))
 
 nat_ENSpie <- ggplot(summer_surveys[!is.na(Secchi_m) & Secchi_m >0.2 , ],
                      aes(Secchi_m,simpsons_div_nat, color = invaded))+
@@ -1318,14 +1336,14 @@ nat_even <- ggplot(summer_surveys[!is.na(Secchi_m) , ],
   scale_x_log10()
 
 
-clp_secchi <- ggplot(summer_surveys[!is.na(potcri_early_vegdfoc), , ], aes(Secchi_m, potcri_early_vegdfoc))+
+clp_secchi <- ggplot(summer_surveys[!is.na(potcri_early_atmdfoc), , ], aes(Secchi_m, potcri_early_atmdfoc))+
   geom_point( alpha = 0.4)+
   geom_smooth(method = "loess")+
   ylab("CLP Abundance")+
   theme_bw()+
   scale_x_log10()
 
-ewm_secchi <- ggplot(summer_surveys[myrspi_summer_vegdfoc>0], aes(Secchi_m, myrspi_summer_vegdfoc))+
+ewm_secchi <- ggplot(summer_surveys[myrspi_summer_atmdfoc>0], aes(Secchi_m, myrspi_summer_atmdfoc))+
   geom_point( alpha = 0.4)+
   geom_smooth( method = "loess")+
   ylab("EWM Abundance")+
@@ -1345,43 +1363,43 @@ summary(CLPabund_nat_lake_ENSpie)
 summary(CLPabund_nat_lake_richness)
 summary(CLPabund_nat_lake_evenness)
 
-m.div.clp.wc <- lmer(simpsons_div_nat ~ potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+m.div.clp.wc <- lmer(simpsons_div_nat ~ potcri_early_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 & !is.na(Secchi_m)] )
 
-m.ric.clp.wc <- glmer(nat_richness ~ potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 ], family = poisson())
+m.ric.clp.wc <- glmer(nat_richness ~ potcri_early_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 ], family = poisson())
 
-m.evn.clp.wc <- lmer(nat_evenness ~ potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 ] )
+m.evn.clp.wc <- lmer(nat_evenness ~ potcri_early_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 ] )
 
 summary(m.div.clp.wc) # here everything becomes non significant
 summary(m.ric.clp.wc) # here clp still has a negative effect
 summary(m.evn.clp.wc) # here everything becomes non significant
 
-#plot_model(m.nat.clp.wc, type = "pred", terms = "potcri_early_vegdfoc")
-# plot_model(m.nat.clp, type = "pred", terms = "potcri_early_vegdfoc")
+#plot_model(m.nat.clp.wc, type = "pred", terms = "potcri_early_atmdfoc")
+# plot_model(m.nat.clp, type = "pred", terms = "potcri_early_atmdfoc")
 
 #EWM
 summary(EWMabund_nat_lake_ENSpie)
 summary(EWMabund_nat_lake_richness)
 summary(EWMabund_nat_lake_evenness)
 
-m.div.ewm.wc <- lmer(simpsons_div_nat ~ myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[])
+m.div.ewm.wc <- lmer(simpsons_div_nat ~ myrspi_summer_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[])
 
-m.ric.ewm.wc <- glmer(nat_richness ~ myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 ], family = poisson())
+m.ric.ewm.wc <- glmer(nat_richness ~ myrspi_summer_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_atmdfoc > 0 ], family = poisson())
 
-m.evn.ewm.wc <- lmer(nat_evenness ~ myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 ])
+m.evn.ewm.wc <- lmer(nat_evenness ~ myrspi_summer_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_atmdfoc > 0 ])
 
 summary(m.div.ewm.wc)# here everything becomes non significant
 summary(m.ric.ewm.wc)# here everything becomes non significant
 summary(m.evn.ewm.wc)# here everything becomes non significant
 
-# plot_model(m.nat.ewm.wc, type = "pred", terms = "myrspi_summer_vegdfoc")
-# plot_model(m.nat.ewm, type = "pred", terms = "myrspi_summer_vegdfoc")
+# plot_model(m.nat.ewm.wc, type = "pred", terms = "myrspi_summer_atmdfoc")
+# plot_model(m.nat.ewm, type = "pred", terms = "myrspi_summer_atmdfoc")
 
 #do the invaders exhibit negative relationships to secchi?
-clp_secchi_test <- glmer(potcri_early_vegdfoc ~ log(Secchi_m) + (1|DOW) + (1| year), data = summer_surveys[!is.na(potcri_early_vegdfoc) ], family = binomial(), weights = SPRING_n_points_vegetated)
+clp_secchi_test <- glmer(potcri_early_atmdfoc ~ log(Secchi_m) + (1|DOW) + (1| year), data = summer_surveys[!is.na(potcri_early_atmdfoc) ], family = binomial(), weights = SPRING_n_points_vegetated)
 summary(clp_secchi_test)
 plot(clp_secchi_test)
 
-ewm_secchi_test <- glmer(myrspi_summer_vegdfoc ~ log(Secchi_m) + (1|DOW) + (1| year), data = summer_surveys[ myrspi_summer_vegdfoc>0], family = binomial(), weights = n_points_vegetated)
+ewm_secchi_test <- glmer(myrspi_summer_atmdfoc ~ log(Secchi_m) + (1|DOW) + (1| year), data = summer_surveys[ myrspi_summer_atmdfoc>0], family = binomial(), weights = n_points_vegetated)
 summary(ewm_secchi_test)
 plot(ewm_secchi_test)
 
@@ -1419,12 +1437,12 @@ summary(secchi_nat_inv)
 #' 
 
 #EWM Abund and Pres Mod
-m.div.ewm.wc.b <- lmer(simpsons_div_nat~Secchi_m*(myrspi_summer_vegdfoc>0) + Secchi_m*myrspi_summer_vegdfoc + (1|DOW) + (1| year) , 
+m.div.ewm.wc.b <- lmer(simpsons_div_nat~Secchi_m*(myrspi_summer_atmdfoc>0) + Secchi_m*myrspi_summer_atmdfoc + (1|DOW) + (1| year) , 
                        data = summer_surveys[ , ])
 
-m.ric.ewm.wc.b <- glmer(nat_richness ~ Secchi_m*(myrspi_summer_vegdfoc>0) + myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ], family = poisson())
+m.ric.ewm.wc.b <- glmer(nat_richness ~ Secchi_m*(myrspi_summer_atmdfoc>0) + myrspi_summer_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ], family = poisson())
 
-m.evn.ewm.wc.b <- lmer(nat_evenness ~ Secchi_m*(myrspi_summer_vegdfoc>0) + myrspi_summer_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ])
+m.evn.ewm.wc.b <- lmer(nat_evenness ~ Secchi_m*(myrspi_summer_atmdfoc>0) + myrspi_summer_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ])
 
 summary(m.div.ewm.wc.b)
 summary(m.ric.ewm.wc.b)
@@ -1432,11 +1450,11 @@ summary(m.evn.ewm.wc.b)
 
 
 #CLP Abund and Pres Mod
-m.div.clp.wc.b <- lmer(simpsons_div_nat ~ Secchi_m*(potcri_early_vegdfoc>0) + potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[] )
+m.div.clp.wc.b <- lmer(simpsons_div_nat ~ Secchi_m*(potcri_early_atmdfoc>0) + potcri_early_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[] )
 
-m.ric.clp.wc.b <- glmer(nat_richness ~ Secchi_m*(potcri_early_vegdfoc>0) + potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ], family = poisson())
+m.ric.clp.wc.b <- glmer(nat_richness ~ Secchi_m*(potcri_early_atmdfoc>0) + potcri_early_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ], family = poisson())
 
-m.evn.clp.wc.b <- lmer(nat_evenness ~ Secchi_m*(potcri_early_vegdfoc>0) + potcri_early_vegdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ] )
+m.evn.clp.wc.b <- lmer(nat_evenness ~ Secchi_m*(potcri_early_atmdfoc>0) + potcri_early_atmdfoc * Secchi_m + (1|DOW) + (1| year), data = summer_surveys[ ] )
 
 summary(m.div.clp.wc.b)
 summary(m.ric.clp.wc.b)
@@ -1615,27 +1633,27 @@ ggarrange(
 
 #Lake level:
 #CLP-D
-D_clp_full_lake <- lmer(simpsons_div_nat ~ potcri_early_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+D_clp_full_lake <- lmer(simpsons_div_nat ~ potcri_early_atmdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 & !is.na(Secchi_m)] )
 summary(D_clp_full_lake)
 
 #CLP-R
-R_clp_full_lake <- lmer(nat_richness ~ potcri_early_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+R_clp_full_lake <- lmer(nat_richness ~ potcri_early_atmdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 & !is.na(Secchi_m)] )
 summary(R_clp_full_lake)
 
 #CLP-E
-E_clp_full_lake <- lmer(nat_evenness ~ potcri_early_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+E_clp_full_lake <- lmer(nat_evenness ~ potcri_early_atmdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 & !is.na(Secchi_m)] )
 summary(E_clp_full_lake)
 
 #EWM-D
-D_ewm_full_lake <- lmer(simpsons_div_nat ~ myrspi_summer_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
+D_ewm_full_lake <- lmer(simpsons_div_nat ~ myrspi_summer_atmdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_atmdfoc > 0 & !is.na(Secchi_m)] )
 summary(D_ewm_full_lake)
 
 #EWM-R
-R_ewm_full_lake <- lmer(nat_richness ~ myrspi_summer_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
+R_ewm_full_lake <- lmer(nat_richness ~ myrspi_summer_atmdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_atmdfoc > 0 & !is.na(Secchi_m)] )
 summary(R_ewm_full_lake)
 
 #EWM-E
-E_ewm_full_lake <- lmer(nat_evenness ~ myrspi_summer_vegdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_vegdfoc > 0 & !is.na(Secchi_m)] )
+E_ewm_full_lake <- lmer(nat_evenness ~ myrspi_summer_atmdfoc*Secchi_m + watershedrichness + (1|DOW) + (1| year), data = summer_surveys[myrspi_summer_atmdfoc > 0 & !is.na(Secchi_m)] )
 summary(E_ewm_full_lake)
 
 
@@ -1730,7 +1748,7 @@ ggplot( data = plants_rakeabund_wide, aes( surveyrichness, nat_richness/surveyri
 # 
 # #Lake level:
 # #CLP-D
-# D_clp_full_lake <- lmer(nat_richness/watershedrichness ~ potcri_early_vegdfoc*Secchi_m  + (1|DOW) + (1| year), data = summer_surveys[potcri_early_vegdfoc > 0 & !is.na(Secchi_m)] )
+# D_clp_full_lake <- lmer(nat_richness/watershedrichness ~ potcri_early_atmdfoc*Secchi_m  + (1|DOW) + (1| year), data = summer_surveys[potcri_early_atmdfoc > 0 & !is.na(Secchi_m)] )
 # summary(D_clp_full_lake)
 # 
 # 

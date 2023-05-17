@@ -254,6 +254,7 @@ IAPMsurveys[ ,c(34:39):=NULL ,]
 #rather than melt, lets collapse these to allow multi-month work done 
 IAPMsurveys <- unite(IAPMsurveys, col = "workdate", c(26:33), sep = "," )
 #dump extra commas:
+setDT(IAPMsurveys)
 IAPMsurveys[ , workdate := gsub("^,*|(?<=,),|,*$", "", workdate, perl=T), ]
 
 #we can see 2+ records for some entries.
@@ -2004,3 +2005,4 @@ sum(duplicated(surveys_s2mgmt[ ,SURVEY_ID , ]))
 
 
 # On 14 June, 2022 (WHEN WRITTEN) this script resulted in 1785 records for management actions
+

@@ -264,6 +264,16 @@ surveys[ yday(DATESURVEYSTART)<181 & yday(DATESURVEYSTART)>151 & !is.na(DOW) ,
          .(SURVEY_ID,DOW, SUBBASIN, p_dow, year, DATESURVEYSTART, clp_vfoc = Potamogeton_crispus/n_points_vegetated),
          ][clp_vfoc>0 , hist(clp_vfoc) ,]
 
+#distribution of peak season abunds
+surveys[ yday(DATESURVEYSTART) < 181 & yday(DATESURVEYSTART) > 151 & !is.na(DOW) ,
+         .(SURVEY_ID,DOW, SUBBASIN, p_dow, year, DATESURVEYSTART, clp_vfoc = Potamogeton_crispus/alltime_maxvegdep_n_samp),
+][ , hist(clp_vfoc) ,]
+
+surveys[ yday(DATESURVEYSTART)<181 & yday(DATESURVEYSTART)>151 & !is.na(DOW) ,
+         .(SURVEY_ID,DOW, SUBBASIN, p_dow, year, DATESURVEYSTART, clp_vfoc = Potamogeton_crispus/alltime_maxvegdep_n_samp),
+][clp_vfoc>0 , hist(clp_vfoc) ,]
+
+
 
 #within year pre-post timed surveys (only reasonable to estimate for CLP):
 

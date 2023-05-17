@@ -173,6 +173,8 @@
   plants[!NEW_SURVEYOR == "" & !is.na(NEW_SURVEYOR), SURVEYOR := NEW_SURVEYOR , ]
   plants[ , NEW_SURVEYOR := NULL ,]
   
+  a <- plants[ , length(unique(SURVEY_ID)) , SURVEYOR]
+  
   
   # date corrections
   plants[ , NEW_DATE := coll_edits[match(plants$SURVEY_ID, coll_edits$SURVEY_ID),  EDIT_DATE ] ,  ]
@@ -651,6 +653,18 @@
     geom_bar(stat = "count", position = "stack" )+
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
     ggtitle(label = "n points by contributor")
+  
+  # survey contribution viz
+  ggplot(plants[ , .N, .(SURVEY_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE, fill = INDATABASE))+
+    geom_bar(stat = "count", position = "stack" )+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    ggtitle(label = "n surveys by contributor")
+  
+  # point contributions
+  ggplot(plants[INDATABASE==T , .N, .(POINT_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE))+
+    geom_bar(stat = "count", position = "stack" )+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    ggtitle(label = "n points by contributor")
 
 #' The database has all the surveys we know exist for MN in it, including those
 #' for which we do not have the data. It is often useful to snip those no-data
@@ -953,6 +967,9 @@
   # n_points within all time max vegetated depth
   surveys <- merge(surveys,plants[DEPTH_FT <= alltime_maxvegdep, .(alltime_maxvegdep_n_samp = length(unique(POINT_ID))) , SURVEY_ID ], by = "SURVEY_ID", all.x = TRUE)[is.na(alltime_maxvegdep_n_samp), alltime_maxvegdep_n_samp := 0 ]
   
+  
+  plot(surveys$alltime_maxvegdep_n_samp ~ surveys$n_points_vegetated, xlab = "n points using survey-specific max depth", ylab = "n points using all time max vegetated depth")
+   
 # species pools -----------------------------------------------------------
 
 #' We have super awesome species pool data because we've got species abunds
@@ -1428,36 +1445,89 @@ ggarrange(point_depth, lake_secchi, wtrshd_area, nrow = 1, labels = c("Point-sca
 
 # lake shapefile for ATLAS, etc -------------------------------------------
 
-plants[ ,  length(unique(TAXON)), .(DOW, SUBBASIN)]
-plants[ ,  length(unique(SURVEY_DATE)), .(DOW, SUBBASIN)]
+# plants[ ,  length(unique(TAXON)), .(DOW, SUBBASIN)]
+# plants[ ,  length(unique(SURVEY_DATE)), .(DOW, SUBBASIN)]
+#   
+# plants[ , toString(unique(na.omit(TAXON))) , .(DOW, LAKE_NAME ,SUBBASIN, order_ID) ]
   
-lakes <- plants[ ,  .("nyears" = length(unique(YEAR)),
+# deidentify rare species:
+  
+#Strip species ID from protected species
+namesstripkey <- plants[ TAXON %in% rte[rarity_status != "" , mn_dnr_scientific_name,], .N , TAXON]
+  namesstripkey[ , new_name := paste("ProtectedSpecies", .I, sep = "_") , ,]
+  
+ plants[ namesstripkey , on = .(TAXON=TAXON) , new_name := new_name]        
+ plants[ TAXON %in% namesstripkey[,TAXON],  new_name  ]  
+ 
+ plants[ is.na(new_name), new_name := TAXON ]
+  colnames(plants)
+
+  plants[ , toString(unique(na.omit(SURVEYOR))) , .(SURVEY_ID) ]
+  
+  plants[plants[, .I[1], SURVEY_ID]$V1, surveyors := toString(unique(na.omit(SURVEYOR))) , .(SURVEY_ID) ]
+  plants[plants[, .I[1], SURVEY_ID]$V1, toString(unique(na.omit(SURVEYOR))) , .(SURVEY_ID) ][999]
+  
+  
+  
+
+  lakes <- plants[ ,  .("nyears" = length(unique(YEAR)),
                       "nsurveys" = length(unique(SURVEY_DATE)),
-                      "surveylist" = toString(unique(SURVEY_DATE, na.rm = T)),
-                      "ntaxa" = length(unique(TAXON, na.rm = T)),
-                      "taxalist" = toString(unique(TAXON, na.rm = T)),
-                      "surveyorlist" = toString(unique(SURVEYOR, na.rm = T))), .(DOW, LAKE_NAME ,SUBBASIN, order_ID)]
+                      "surveylist" = toString(unique(na.omit(SURVEY_DATE))),
+                      "datasource" = toString(unique(na.omit(SURVEY_DATASOURCE))),
+                      "ntaxa" = length(unique(na.omit(TAXON))),
+                      "taxalist" = toString(unique(na.omit(new_name))),
+                      "surveyorlist" = toString(na.omit(surveyors))), .(DOW, LAKE_NAME, order_ID)]
 
 
-lakes[pwi_l, on = .(order_ID), geometry := geometry]
-lakes[ ,surveylist := as.character(surveylist)]
 
-lakes <- st_as_sf(lakes)
-lakes <- st_cast(lakes, "MULTIPOLYGON")
-
-ggplot(data = lakes, aes(geometry=geometry))+
-  geom_sf(alpha = .5,  color = "blue")
-
-summary(lakes)
-str(pwi_l)
-
-st_write(nc, "nc.shp")
+  
+pwi_l_plants <- pwi_l[lakes, on = .(order_ID)]
 
 
-st_crs(lakes)
+# pwi_l_plants[ , surveyorlist, ]
+  
+#   
+# lakes[pwi_l, on = .(order_ID), geometry := geometry]
+# lakes[ ,surveylist := as.character(surveylist)]
+# 
+# lakes <- st_as_sf(lakes)
+# lakes <- st_cast(lakes, "MULTIPOLYGON")
+# 
+# ggplot(data = lakes, aes(geometry=geometry))+
+#   geom_sf(alpha = .5,  color = "blue")
+# 
+# summary(lakes)
+# str(pwi_l)
+# 
+# st_write(nc, "nc.shp")
 
 
-# sf::st_write(lakes, "data/output/lakes_summ.csv")
+# st_crs(lakes)
+
+
+
+
+
+# pwi_l_plants[ ]
+
+# names_conv <- names(pwi_l_plants)[names(pwi_l_plants)!="geometry"]
+# 
+# for(col in names_conv)
+#   set(pwi_l_plants, j = col, value = as.character(pwi_l_plants[[col]]))
+# 
+# pwi_l_plants <- st_as_sf(pwi_l_plants)
+# 
+# sf::st_write(pwi_l_plants, "data&scripts/data/output/lakes_summ.shp")
+pwi_l_plants[ , "geometry" := NULL , ]
+fwrite(pwi_l_plants, file = "data&scripts/data/output/lakes_summ.csv" )
+fwrite(namesstripkey, file = "data&scripts/data/output/protected_nameskey.csv")
+
+# attr(pwi_l_plants, "geometry") 
+# pwi_l_plants[["geometry"]] <- pwi_l_plants$geom
+# pwi_l_plants$geom <- NULL
+# mapview(pwi_l_plants)
+
+
 # 
 # saveRDS(lakes, "data&scripts/data/output/lakes_summ.rds")
 
