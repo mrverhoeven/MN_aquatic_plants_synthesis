@@ -15,7 +15,11 @@
 #' 
 #' On 28 October, this script was updated to alter how mgmt data were merged to
 #' trt data (keyed by parent dow and subbasin name). This created a major
-#' duplication issue in the data. 
+#' duplication issue in the data.
+#' 
+#' As of 1 Dec 2022, I think that this is fixed. 
+#' 
+#'  
 
 # header ------------------------------------------------------------------
 
