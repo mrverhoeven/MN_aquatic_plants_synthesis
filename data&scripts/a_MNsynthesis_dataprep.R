@@ -14,6 +14,11 @@
 #' clarity, lake/watershed geodata, species statuses, and collaborator feedback.
 #' Then we'll sync them into our dataset, creating a full macrophyte obs and env
 #' dataset for MN Lakes
+#' 
+#' 
+#' Outstanding Work: 
+#' 1. Ensure Survey product includes the corrected datasource's name. 
+#' 2. Ensure that wide plant obs data do not include the old TAXON column (i.e. if a row is showing taxa p/a or abund in columns, make sure that the old TAXON column goes away)
 
 
 #' ## Document Preamble
@@ -393,7 +398,7 @@
   st_crs(pwi_l) <- st_crs(watersheds_huc8) #ignore warning, no re-projection needed in this case, we do this because I lost the crs in some of my data manipulation
   pwi_l <- st_join(pwi_l, left = TRUE, watersheds_huc8)
   setDT(pwi_l)
-  rm(plants_pts, plants_UTMS)
+  rm( plants_UTMS)
 
   
 # rake scale normalization -------------------------------------------
@@ -722,7 +727,7 @@
   
   # still a bunch of dups leftover where we've got:
   # two abunds for one species or two of something for one species...
-  # with a littel sleuthing, I can see that these are a whole mix of things. For
+  # with a little sleuthing, I can see that these are a whole mix of things. For
   # example, James Johnson submitted one survey with two samples for point 213...
   # the solution I'll use is to allow these obs to stay (assuming that both obs 
   # are real, and the data entry resulted in a bad point ID for one of them).
@@ -780,7 +785,7 @@
                                     proplight +
                                     DEPTH_FT + 
                                     SUBSTRATE +
-                                    SURVEYOR ~ TAXON, fun.aggregate = last,  value.var = "INDATABASE", fill = 0)
+                                    SURVEYOR ~ TAXON, fun.aggregate = last,  value.var = "INDATABASE", fill = 0) #Specify a logical var for all included data (INDATABASE) so that this species matrix is all T/F
   
   #diversity metrics (only have richness with p/a, no "evenness", no "diversity"):
   point_natcols <- names(plants_occurrence_wide)[names(plants_occurrence_wide)%in%natcols]
@@ -824,7 +829,7 @@
   plants_rakeabund_wide[ ,  richness := rowSums(.SD > 0), .SDcols = c(8:145) ]
   plants_rakeabund_wide[ ,  nat_richness := rowSums(.SD > 0), .SDcols = rake_natcols ]
   
-  summary(plants_rakeabund_wide$`Potamogeton crispus`)
+  summary(plants_rakeabund_wide$`Potamogeton crispus`)#check that max rakeabund is 3
   
   
   #bring all survey level variables back into the dataset 
@@ -912,7 +917,7 @@
   #max depth vegetated within survey:
   
   #some of these might warrant removal, depending on whats being done with the data
-  plants[NO_VEG_FOUND == F & DEPTH_FT>50, length(POINT_ID) ,  .(DATASOURCE, DOW, SUBBASIN, DATESURVEYSTART, LAKE_NAME)]
+  plants[NO_VEG_FOUND == F & DEPTH_FT>50, length(POINT_ID) ,  .(SURVEY_DATASOURCE, DOW, SUBBASIN, DATESURVEYSTART, LAKE_NAME)]
   
   plants[ NO_VEG_FOUND == FALSE , .("max_depth_vegetated" = max(DEPTH_FT)) , SURVEY_ID]
   surveys <- merge( surveys , plants[ NO_VEG_FOUND == FALSE , .("max_depth_vegetated" = max(DEPTH_FT, na.rm = T)) , SURVEY_ID] , by = "SURVEY_ID" , all.x =TRUE )
@@ -933,7 +938,7 @@
   
   #append survey data (basic data from plants db) to these
   # names(plants)
-  surveys <- merge(plants[ , .("nobs" = .N) , .(SURVEY_ID, DATASOURCE, LAKE_NAME, DOW, DATESURVEYSTART, SUBBASIN, MULTIPARTSURVEY, order_ID) ],surveys,  by = "SURVEY_ID")
+  surveys <- merge(plants[ , .("nobs" = .N) , .(SURVEY_ID, SURVEY_DATASOURCE, LAKE_NAME, DOW, DATESURVEYSTART, SUBBASIN, MULTIPARTSURVEY, order_ID) ],surveys,  by = "SURVEY_ID")
   # summary(surveys)
   names(surveys) <- gsub(" ", "_", gsub( "\\(", "_", gsub( "\\)", "_", names(surveys))))
   
