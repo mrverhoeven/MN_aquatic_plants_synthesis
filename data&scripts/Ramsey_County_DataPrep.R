@@ -36,7 +36,7 @@ ramsey_co_plant_surveys[ zm_inv_yr, on = .(DOW = dow_formatted), year_listed_ZM 
 
 ramsey_co_plant_surveys[, invaded_ZM =  , ]
 
-new_plants <- readRDS("C:\\Users\\verh0064\\Desktop\\plants_db_new")
+new_plants <- readRDS("data&scripts/data/input/db_picharter_19Oct2023.rds")
 
 fwrite( )
 
@@ -49,8 +49,9 @@ colnames(surveys[ , c(1:4, 58:76, 308:320, 77:307  ) , ])
 surveys[ , mean(max_depth_surveyed) , SURVEY_DATASOURCE ]
 
 
+setDT(new_plants)
 
-
+new_plants[DOW %in% c(62000000:63000000, 2000300, 82016700 ), length(unique(SURVEY_START)) , .( DOW) ]
 
 
 
