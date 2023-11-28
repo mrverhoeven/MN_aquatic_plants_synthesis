@@ -47,7 +47,7 @@
   # library(lmerTest)
   # library(merTools)
   # library(rstanarm)
-  library(ggsn)
+  # library(ggsn)
 
 
 # load in functions -------------------------------------------------------
@@ -212,7 +212,211 @@
   # clean up WS
   rm(coll_edits, sel)
 
+  # summarize plants dataset ---------------------------------------------------
+  #' ## Review Data Summaries
+  #' 
+  #' Review current data status and outline changes needed for 
+  #' 
+  #' 
+  str(plants) #what data formats?
+  names(plants) #field names
+  
+  plants[ , length(unique(SURVEY_ID)) , ] #how many surveys in all?
+  plants[ INDATABASE == T , length(unique(SURVEY_ID))] #how many surveys do we have the data in our db for?
+  plants[ , length((unique(DOW))) , ] #how many lake in all?
+  plants[ , length(unique(YEAR)) , ] #how many years of data?
+  plants[ , length(unique(POINT_ID)),] #how samples pulled from the lake?
+  plants[!is.na(TAXON) , length(unique(OBS_ID))] # how many times was a plant identified in these data? 
+  
+  
+  #' Lets see how many surveys (then number of points) we have been given by each contributor:
+  
+  plants[ , unique(SURVEY_DATASOURCE) ,] 
+  
+  # survey contribution viz
+  ggplot(plants[ , .N, .(SURVEY_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE, fill = INDATABASE))+
+    geom_bar(stat = "count", position = "stack" )+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    ggtitle(label = "n surveys by contributor")
+  
+  # point contributions
+  ggplot(plants[INDATABASE==T , .N, .(POINT_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE))+
+    geom_bar(stat = "count", position = "stack" )+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    ggtitle(label = "n points by contributor")
+  
+  # survey contribution viz
+  ggplot(plants[ , .N, .(SURVEY_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE, fill = INDATABASE))+
+    geom_bar(stat = "count", position = "stack" )+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    ggtitle(label = "n surveys by contributor")
+  
+  # point contributions
+  ggplot(plants[INDATABASE==T , .N, .(POINT_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE))+
+    geom_bar(stat = "count", position = "stack" )+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+    ggtitle(label = "n points by contributor")
+  
+  #' The database has all the surveys we know exist for MN in it, including those
+  #' for which we do not have the data. It is often useful to snip those no-data
+  #' ones off right away to avoid running any calcs using all those rows w/o any
+  #' species data. 
+  
+  missing_data_surveys <- plants[ INDATABASE == F] 
+  plants <- plants[INDATABASE == T]
+  
+  
+  # drop zeros --------------------------------------------------------------
+  
+  #' We dropped surveys with no depth data in an early cleaning step. This
+  #' happened before we merged datasets from the MN DNR into the database, meaning
+  #' that we've still got to do a purge of 0 and NA depths to be sure we've
+  #' handled DNR and other collaborator data consistently: 
+  
+  #any remaining points with depth == NA or 0? They need to be dropped to be consistent in the handling of all no depth sampled points (currently only MNDNR ):
+  # plants[is.na(DEPTH_FT)|DEPTH_FT == 0 , ][ , .N , .(SURVEY_ID, DATASOURCE)]
+  
+  plants[is.na(DEPTH_FT), .N, .(SURVEY_ID, DATASOURCE)][, unique(DATASOURCE)] #these only still remain in the DNR data--thats because we did the DNR data merge after cleaning up the other data 
+  
+  sum(plants[ SURVEY_ID %in% plants[is.na(DEPTH_FT), .N, .(SURVEY_ID, DATASOURCE)][,SURVEY_ID], .N , .(SURVEY_ID, DATASOURCE)
+  ][ , N]) #counts all points in those surveys
+  
+  #drop them:
+  plants <- plants[!is.na(DEPTH_FT) ]
+  
+  
+  # duplicated entries ------------------------------------------------------
+  
+  #' It's become aparrent to me that when we casted the data to long format in the
+  #'  survey collation project, we ended up with many cases of multiple
+  #'  "observations" of the same thing from within a single point. Here we clean
+  #'  up this issue. I found the cause of it by opening up the surveycollation 
+  #'  project  
+  #drop duplicated entries:
+  names(plants)
+  
+  plants[ , .N , .(SURVEY_ID,
+                   POINT_ID ,
+                   NO_VEG_FOUND ,
+                   # proplight ,
+                   DEPTH_FT ,
+                   SUBSTRATE ,
+                   SURVEYOR, TAXON)  ][N>1 , hist(N) , ]
+  
+  sum(duplicated(plants$OBS_ID))
+  
+  names(plants[ , .SD , .SDcols = !c("OBS_ID") ])
+  
+  sum(duplicated(plants[ , .SD , .SDcols = !c("OBS_ID") ]))
+  
+  plants <- plants[!duplicated(plants[ , .SD , .SDcols = !c("OBS_ID") ]) , , ]
+  
+  # still a bunch of dups leftover where we've got:
+  # two abunds for one species or two of something for one species...
+  # with a little sleuthing, I can see that these are a whole mix of things. For
+  # example, James Johnson submitted one survey with two samples for point 213...
+  # the solution I'll use is to allow these obs to stay (assuming that both obs 
+  # are real, and the data entry resulted in a bad point ID for one of them).
+  # because of this, when we agg to the point level, we'll have to choose an obs
+  # to use that taxon. You'll see this play out in the species matrix
+  # construction below:
+  
+  
+  plants[ , .N , .(SURVEY_ID,
+                   POINT_ID ,
+                   NO_VEG_FOUND ,
+                   #proplight ,
+                   DEPTH_FT ,
+                   SUBSTRATE ,
+                   SURVEYOR, TAXON)  ][N>1 , .N , ]
+  plants[ , .N , .(SURVEY_ID,
+                   POINT_ID ,
+                   NO_VEG_FOUND ,
+                   #proplight ,
+                   DEPTH_FT ,
+                   SUBSTRATE ,
+                   SURVEYOR, TAXON)  ][N>1 , unique(POINT_ID) , ]
+  
+  
+  #' ## The point observation dataset:
+  #' 
+  #' Now "plants" is only those surveys for which we were able to gather and
+  #' collate the data. Below we organize these data 3 ways: 
+  #' 
+  #' 1. As long format: each row is a species observation within a point (multiple
+  #' rows per point) including all fields retained through cleaning processes
+  #' 2. As a wide format of occurrences: each row is a point record, and the columns include a 
+  #' species observation (presence/absence) matrix. Here we keep only fields we 
+  #' 3. As a wide format with species abundances (a subset of "2.") where each row
+  #' is a point record , and the columns include a species abundance matrix
+  
+  #how many surveys and how many points were sampled in each?
+  hist(plants[ ,length(unique(POINT_ID)) , SURVEY_ID]$V1, breaks= 100, main = "N points per survey", xlab = "Npoints")
+  
+  #how many unique TAXA?
+  unique(plants$TAXON)
+  # N taxa per survey:
+  plants[ , .("Ntaxa" = length(unique(TAXON))) , SURVEY_ID] #if you want to name cols on the fly you need to wrap in .() which makes list from them 
+  hist(plants[ , length(unique(TAXON)) , SURVEY_ID][ , V1], main = "N taxa per survey", xlab = "N taxa")
+  hist(plants[ , length(unique(TAXON)) , POINT_ID][ , V1], main = "N taxa per point", xlab = "N taxa")
 
+# rake scale normalization -------------------------------------------
+  
+  #' ## Rake Abundance Normalization
+  #' This code will clean the relative rake density data from the whole PI dataset, 
+  #' shifting all to a 0,1,2,3 scale. This code was developed in the
+  #' surveycollation project, but is implemented here (post-collaborator feedback) 
+  #' to allow the collabs to specify what the rake scale they used was.
+  
+  #drop surveys with max vals of 1s and 1-2s
+  rakes1 <- plants[RAKE_SCALE_USED %in% c(3,4,5), ]
+  # rakes1[ , .N , REL_ABUND]
+  #how many surveys in these categories?
+  # rakes1[  , .N  , SURVEY_ID] #982
+  
+  #Now shift/ realign data per discussion above
+  #1-4 survey shifted to 1-3
+  rakes1[RAKE_SCALE_USED == 4 & REL_ABUND == 3 ,
+         REL_ABUND := 2 ]
+  rakes1[RAKE_SCALE_USED == 4 & REL_ABUND == 4 ,
+         REL_ABUND := 3 ]
+  #1-5 surveys shifted to 1-3
+  rakes1[RAKE_SCALE_USED == 5 & (REL_ABUND == 3 |REL_ABUND == 4) ,
+         REL_ABUND := 2 ]
+  rakes1[RAKE_SCALE_USED == 5 & REL_ABUND == 5 ,
+         REL_ABUND := 3 ]
+  
+  
+  # #check that the max vals are all 3's
+  # hist(rakes1[ !is.na(REL_ABUND) , max(REL_ABUND) , SURVEY_ID  ][,V1])
+  # 
+  # #and all data are distributed in 1-3 rake density framework
+  # hist(rakes1[ !is.na(REL_ABUND) , REL_ABUND ,  ])
+  # 
+  # # count the number of surveys we've got
+  # rakes1[ , .N , SURVEY_ID ] # N points per survey (includes NA's--points where no species were observed)
+  
+  
+  # put the corrected rake scales back into the plants db
+  # plants[ , , ] 
+  # rakes1[ , .N , OBS_ID][N>1]
+  
+  # rakes1[is.na(OBS_ID) , ,]
+  
+  #where people told us the rake scale but data to-date not in db:
+  rakes1 <- rakes1[!is.na(OBS_ID)]
+  
+  #pop these corrected rake scale data into the plants dataset
+  plants[OBS_ID %in% rakes1$OBS_ID , REL_ABUND_CORRECTED := rakes1$REL_ABUND  , ]
+  
+  #clean out intermediates
+  rm(rakes1)
+
+# add in new datasets here? -----------------------------------------------
+
+  
+    
+ 
 # georeference data -------------------------------------------------------
 
 #' ## Georeference Data
@@ -401,57 +605,7 @@
   rm( plants_UTMS)
 
   
-# rake scale normalization -------------------------------------------
-  
-#' ## Rake Abundance Normalization
-#' This code will clean the relative rake density data from the whole PI dataset, 
-#' shifting all to a 0,1,2,3 scale. This code was developed in the
-#' surveycollation project, but is implemented here (post-collaborator feedback) 
-#' to allow the collabs to specify what the rake scale they used was.
-  
-  #drop surveys with max vals of 1s and 1-2s
-  rakes1 <- plants[RAKE_SCALE_USED %in% c(3,4,5), ]
-  # rakes1[ , .N , REL_ABUND]
-  #how many surveys in these categories?
-  # rakes1[  , .N  , SURVEY_ID] #982
-  
-  #Now shift/ realign data per discussion above
-    #1-4 survey shifted to 1-3
-  rakes1[RAKE_SCALE_USED == 4 & REL_ABUND == 3 ,
-         REL_ABUND := 2 ]
-  rakes1[RAKE_SCALE_USED == 4 & REL_ABUND == 4 ,
-         REL_ABUND := 3 ]
-    #1-5 surveys shifted to 1-3
-  rakes1[RAKE_SCALE_USED == 5 & (REL_ABUND == 3 |REL_ABUND == 4) ,
-         REL_ABUND := 2 ]
-  rakes1[RAKE_SCALE_USED == 5 & REL_ABUND == 5 ,
-         REL_ABUND := 3 ]
-  
-  
-  # #check that the max vals are all 3's
-  # hist(rakes1[ !is.na(REL_ABUND) , max(REL_ABUND) , SURVEY_ID  ][,V1])
-  # 
-  # #and all data are distributed in 1-3 rake density framework
-  # hist(rakes1[ !is.na(REL_ABUND) , REL_ABUND ,  ])
-  # 
-  # # count the number of surveys we've got
-  # rakes1[ , .N , SURVEY_ID ] # N points per survey (includes NA's--points where no species were observed)
-  
-  
-  # put the corrected rake scales back into the plants db
-  # plants[ , , ] 
-  # rakes1[ , .N , OBS_ID][N>1]
-  
-  # rakes1[is.na(OBS_ID) , ,]
-  
-  #where people told us the rake scale but data to-date not in db:
-  rakes1 <- rakes1[!is.na(OBS_ID)]
-  
-  #pop these corrected rake scale data into the plants dataset
-  plants[OBS_ID %in% rakes1$OBS_ID , REL_ABUND_CORRECTED := rakes1$REL_ABUND  , ]
-  
-  #clean out intermediates
-  rm(rakes1)
+
   
 # add in secchi data ------------------------------------------------------
   
@@ -626,155 +780,10 @@
                                                                               "Nitellopsis", "Typha glauca"))]
 
  
-# summarize plants dataset ---------------------------------------------------
-#' ## Review Data Summaries
-#' 
-#' Review current data status and ouline changes needed for 
-#' 
-#' 
-  str(plants) #what data formats?
-  names(plants) #field names
-  
-  plants[ , length(unique(SURVEY_ID)) , ] #how many surveys in all?
-  plants[ INDATABASE == T , length(unique(SURVEY_ID))] #how many surveys do we have the data in our db for?
-  plants[ , length((unique(DOW))) , ] #how many lake in all?
-  plants[ , length(unique(YEAR)) , ] #how many years of data?
-  plants[ , length(unique(POINT_ID)),] #how samples pulled from the lake?
-  plants[!is.na(TAXON) , length(unique(OBS_ID))] # how many times was a plant identified in these data? 
+
+# *Generate Datasets ------------------------------------------------------
 
 
-#' Lets see how many surveys (then number of points) we have been given by each contributor:
-  
-  plants[ , unique(SURVEY_DATASOURCE) ,] 
-  
-  # survey contribution viz
-  ggplot(plants[ , .N, .(SURVEY_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE, fill = INDATABASE))+
-    geom_bar(stat = "count", position = "stack" )+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
-    ggtitle(label = "n surveys by contributor")
-  
-  # point contributions
-  ggplot(plants[INDATABASE==T , .N, .(POINT_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE))+
-    geom_bar(stat = "count", position = "stack" )+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
-    ggtitle(label = "n points by contributor")
-  
-  # survey contribution viz
-  ggplot(plants[ , .N, .(SURVEY_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE, fill = INDATABASE))+
-    geom_bar(stat = "count", position = "stack" )+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
-    ggtitle(label = "n surveys by contributor")
-  
-  # point contributions
-  ggplot(plants[INDATABASE==T , .N, .(POINT_ID, SURVEY_DATASOURCE, INDATABASE)], aes(SURVEY_DATASOURCE))+
-    geom_bar(stat = "count", position = "stack" )+
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
-    ggtitle(label = "n points by contributor")
-
-#' The database has all the surveys we know exist for MN in it, including those
-#' for which we do not have the data. It is often useful to snip those no-data
-#' ones off right away to avoid running any calcs using all those rows w/o any
-#' species data. 
-
-  missing_data_surveys <- plants[ INDATABASE == F] 
-  plants <- plants[INDATABASE == T]
-  
-  
-# drop zeros --------------------------------------------------------------
-  
-  #' We dropped surveys with no depth data in an early cleaning step. This
-  #' happened before we merged datasets from the MN DNR into the database, meaning
-  #' that we've still got to do a purge of 0 and NA depths to be sure we've
-  #' handled DNR and other collaborator data consistently: 
-  
-  #any remaining points with depth == NA or 0? They need to be dropped to be consistent in the handling of all no depth sampled points (currently only MNDNR ):
-  # plants[is.na(DEPTH_FT)|DEPTH_FT == 0 , ][ , .N , .(SURVEY_ID, DATASOURCE)]
-  
-  plants[is.na(DEPTH_FT), .N, .(SURVEY_ID, DATASOURCE)][, unique(DATASOURCE)] #these only still remain in the DNR data--thats because we did the DNR data merge after cleaning up the other data 
-  
-  sum(plants[ SURVEY_ID %in% plants[is.na(DEPTH_FT), .N, .(SURVEY_ID, DATASOURCE)][,SURVEY_ID], .N , .(SURVEY_ID, DATASOURCE)
-  ][ , N]) #counts all points in those surveys
-  
-  #drop them:
-  plants <- plants[!is.na(DEPTH_FT) ]
-  
-
-# duplicated entries ------------------------------------------------------
-
-#' It's become aparrent to me that when we casted the data to long format in the
-#'  survey collation project, we ended up with many cases of multiple
-#'  "observations" of the same thing from within a single point. Here we clean
-#'  up this issue. I found the cause of it by opening up the surveycollation 
-#'  project  
-  #drop duplicated entries:
-  names(plants)
-  
-  plants[ , .N , .(SURVEY_ID,
-                   POINT_ID ,
-                   NO_VEG_FOUND ,
-                   proplight ,
-                   DEPTH_FT ,
-                   SUBSTRATE ,
-                   SURVEYOR, TAXON)  ][N>1 , hist(N) , ]
-  
-  sum(duplicated(plants$OBS_ID))
-  
-  names(plants[ , .SD , .SDcols = !c("OBS_ID") ])
-  
-  sum(duplicated(plants[ , .SD , .SDcols = !c("OBS_ID") ]))
-  
-  plants <- plants[!duplicated(plants[ , .SD , .SDcols = !c("OBS_ID") ]) , , ]
-  
-  # still a bunch of dups leftover where we've got:
-  # two abunds for one species or two of something for one species...
-  # with a little sleuthing, I can see that these are a whole mix of things. For
-  # example, James Johnson submitted one survey with two samples for point 213...
-  # the solution I'll use is to allow these obs to stay (assuming that both obs 
-  # are real, and the data entry resulted in a bad point ID for one of them).
-  # because of this, when we agg to the point level, we'll have to choose an obs
-  # to use that taxon. You'll see this play out in the species matrix
-  # construction below:
-  
-  
-  plants[ , .N , .(SURVEY_ID,
-                   POINT_ID ,
-                   NO_VEG_FOUND ,
-                   proplight ,
-                   DEPTH_FT ,
-                   SUBSTRATE ,
-                   SURVEYOR, TAXON)  ][N>1 , .N , ]
-  plants[ , .N , .(SURVEY_ID,
-                   POINT_ID ,
-                   NO_VEG_FOUND ,
-                   proplight ,
-                   DEPTH_FT ,
-                   SUBSTRATE ,
-                   SURVEYOR, TAXON)  ][N>1 , unique(POINT_ID) , ]
-
-
-#' ## The point observation dataset:
-#' 
-#' Now "plants" is only those surveys for which we were able to gather and
-#' collate the data. Below we organize these data 3 ways: 
-#' 
-#' 1. As long format: each row is a species observation within a point (multiple
-#' rows per point) including all fields retained through cleaning processes
-#' 2. As a wide format of occurrences: each row is a point record, and the columns include a 
-#' species observation (presence/absence) matrix. Here we keep only fields we 
-#' 3. As a wide format with species abundances (a subset of "2.") where each row
-#' is a point record , and the columns include a species abundance matrix
-
-  #how many surveys and how many points were sampled in each?
-  hist(plants[ ,length(unique(POINT_ID)) , SURVEY_ID]$V1, breaks= 100, main = "N points per survey", xlab = "Npoints")
-  
-  #how many unique TAXA?
-  unique(plants$TAXON)
-  # N taxa per survey:
-  plants[ , .("Ntaxa" = length(unique(TAXON))) , SURVEY_ID] #if you want to name cols on the fly you need to wrap in .() which makes list from them 
-  hist(plants[ , length(unique(TAXON)) , SURVEY_ID][ , V1], main = "N taxa per survey", xlab = "N taxa")
-  hist(plants[ , length(unique(TAXON)) , POINT_ID][ , V1], main = "N taxa per point", xlab = "N taxa")
-  
- 
 # point level p/a  -------------------------------------------------
   plants[ ,REL_ABUND] 
   
@@ -1081,11 +1090,7 @@
      lake_pools
    )
   
-   ggarrange(
-     point_pools,
-     lake_pools
-   )
-   
+
    
 #clean up intermediates:
    
@@ -1125,6 +1130,70 @@
    
    save(pwi_l, rte, watersheds_huc8, watershed_occurrence_wide,  file = "synthesis_script_datasets.Rdata")  
 
+   
+
+
+# metadata ----------------------------------------------------------------
+
+ # [1] "SURVEY_ID"                     Unique ID for each survey
+ # [2] "DOW"                           MN Dept of Waters Ident
+ # [3] "SUBBASIN"                      Name of lake's subbasins in which this survey was done (usually associated with multipart surveys)
+ # [4] "fw_id"                         Fisheries division waterbody ID - used to link to hydrography data
+ # [5] "SURVEY_DATASOURCE"             Corrected datasource name. Usually the responsible organization
+ # [6] "LAKE_NAME"                     Name of lake
+ # [7] "DATESURVEYSTART"               date 
+ # [8] "MULTIPARTSURVEY"               was this survey a part of a broader set of surveys? each component is labelled with a ####.## where the #### is the grouping and the .## are the component IDs
+ # [9] "nobs"                          how many point observations were made in this survey (each species at a point = 1, the lack of species at a point = 1)
+ # [10] "tot_n_samp"                    total number of samples taken/points sampled
+ # [11] "taxa_richness"                 count of taxa richness
+ # [12] "n_points_vegetated"            number of points with veg present
+ # [13] "prop_veg"                      n_points_vegetated/tot_n_samp
+ # [14] "max_depth_surveyed"            max depth that survyors sampled (ALL DEPTHS IN FEET)
+ # [15] "min_depth_surveyed"            min depth that surveyors sampled (ALL DEPTHS IN FEET) 
+ # [16] "mean_depth_surveyed"           mean depth that surveyors sampled (ALL DEPTHS IN FEET) 
+ # [17] "median_depth_surveyed"         median depth that surveyors sampled (ALL DEPTHS IN FEET)
+ # [18] "IQR_depth_surveyed"            inter-quartile range depth that surveyors sampled (ALL DEPTHS IN FEET)
+ # [19] "max_depth_vegetated"           maximum depth where vegetation was observed (ALL DEPTHS IN FEET)  
+ # [20] "min_depth_vegetated"           min depth where vegetation was observed (ALL DEPTHS IN FEET) 
+ # [21] "mean_depth_vegetated"          mean depth where vegetation was observed (ALL DEPTHS IN FEET) 
+ # [22] "median_depth_vegetated"        median depth where vegetation was observed (ALL DEPTHS IN FEET) 
+ # [23] "IQR_depth_vegetated"           inter-quartile range depth where vegetation was observed (ALL DEPTHS IN FEET) 
+ # [24] "shannon_div"                   shannon's div from vegan()
+ # [25] "simpsons_div"                  inverse simpson's div from vegan()
+ # [26] "shannon_div_nat"               shannon's div of native species from vegan() 
+ # [27] "simpsons_div_nat"              inverse simpsons div of native species from vegan() 
+ # [28] "nat_richness"                  native species taxon count
+ # [29] "year"                          year
+ # [30] "Secchi_m"                      secchi obs in meters
+ # [31] "Secchi_m_date"                 date of secchi obs
+ # [32] "alltime_maxvegdep"             the max depth of plants ever observed in this lake (across all surveys in this db)
+ # [33] "alltime_maxvegdep_n_samp"      number of samples taken from points less than alltime_maxvegdep
+ # [34] "watershed"                     watershed number (HUC 8 I think?)
+ # [35] "watershedrichness"             taxon richness in this db for that HUC 8 watershed
+ # [36] "watershedsimpson"              inv simpsons div from vegan() calculated for entire survey set in HUC 8 grouping
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
    
 
 # Figs for data pub -------------------------------------------------------
